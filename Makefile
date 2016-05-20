@@ -3,24 +3,24 @@ CFLAGS = -Wall -std=c++11
 EXTRA_FILES = Makefile README
 
 
-all: lib Search
+all: CachingFileSystemApp
 
 CachingFileSystemApp : CachingFileSystem.cpp
 	${CC} ${CFLAGS} CachingFileSystem.cpp `pkg-config fuse --cflags --libs` -o caching
-	caching /cs/stud/roee28c/ClionProjects/ex4OS/rootDir /cs/stud/roee28c/ClionProjects/ex4OS/mountDir 10 0.5 0.5
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	caching /tmp/rootDir /tmp/mountDir 10 0.5 0.5
 	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+#caching /cs/stud/roee28c/ClionProjects/ex4OS/rootDir /cs/stud/roee28c/ClionProjects/ex4OS/mountDir 10 0.5 0.5
 	
 	
 	
