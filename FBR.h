@@ -16,7 +16,7 @@ private:
 
 public:
     Block(int fd, size_t numBlk, size_t refCounter, const string &data) :
-            fd(fd), blkInd(blkInd), refCounter(refCounter), data(data) { }
+            fd(fd), blkInd(blkInd), refCounter(refCounter), data(data) {}
 
     inline int getFd() const {
         return fd;
@@ -44,12 +44,14 @@ public:
 class Cache {
 private:
     list<Block*> *blockList;
+    int blkSize;
     size_t nOldBlk;
     size_t nNewBlk;
     size_t cacheSize;
 
+
 public:
-    Cache(size_t nOldBlk, size_t nNewBlk, size_t cacheSize);
+    Cache(size_t nOldBlk, blkSize, size_t nNewBlk, size_t cacheSize);
 
     virtual ~Cache();
 

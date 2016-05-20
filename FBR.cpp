@@ -1,10 +1,9 @@
 #include "FBR.h"
 
 
-Cache::Cache(size_t nOldBlk, size_t nNewBlk, size_t cacheSize) : nOldBlk(nOldBlk),
-                                                    nNewBlk(nNewBlk),
-                                                    cacheSize(cacheSize) {
-                                                        blockList = new list();
+Cache::Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize) :
+        nOldBlk(nOldBlk), nNewBlk(nNewBlk), cacheSize(cacheSize) {
+    blockList = new list();
 }
 
 Cache::~Cache() {
