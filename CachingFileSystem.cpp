@@ -1,8 +1,3 @@
-/*
- * CachingFileSystem.cpp
- *
- *  Author: Netanel Zakay, HUJI, 67808  (Operating Systems 2015-2016).
- */
 #define FUSE_USE_VERSION 26
 // ------------------------------ includes -------------------------------------
 #include <fuse.h>
@@ -12,7 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-
 using namespace std;
 
 
@@ -20,6 +14,7 @@ using namespace std;
 
 #define FAILURE 1
 #define SUCCESS 0
+#define TIME_FAILURE -1
 #define ROOT_DIR_INDEX 1
 #define MOUNT_DIR_INDEX 2
 #define N_BLOCKS_INDEX 3
@@ -38,7 +33,6 @@ struct CFSdata
 };
 
 #define Caching_DATA ((struct CFSdata *) fuse_get_context()->private_data)		//todo change place
-
 
 // ------------------------------- globals -------------------------------------
 struct fuse_operations caching_oper;
@@ -157,7 +151,7 @@ static int writeFuncToLog(ofstream &logFile, string funcName)
 {
 	time_t seconds = time(NULL);
 	logFile << seconds << " " << funcName << endl;
-	if (seconds != SUCCESS)
+	if (seconds == (time_t) TIME_FAILURE)
 	{
 		return -errno;
 	}
@@ -185,21 +179,12 @@ static int checkSysCallFS(int result)
  */
 static string getFullPath(string path)
 {
-	return cFSdata.rootDirPath + "/" +  path; // todo check double // slash!!!!
+//	string fp  = cFSdata.rootDirPath  +  path; // todo check double // slash!!!!
+//	cout << "p: " << path << "\nfp: " << fp << endl;
+
+	return cFSdata.rootDirPath  +  path; // todo check double // slash!!!!;
 }
 
-
-//#########################################
-//static void bb_fullpath(char fpath[PATH_MAX], const char *path)
-//{
-//	strcpy(fpath, BB_DATA->rootdir);
-//	strncat(fpath, path, PATH_MAX); // ridiculously long paths will
-//	// break here
-//
-//	log_msg("    bb_fullpath:  rootdir = \"%s\", path = \"%s\", fpath = \"%s\"\n",
-//			BB_DATA->rootdir, path, fpath);
-//}
-//########################################
 
 // ------------------------------ functions ------------------------------------
 /** Get file attributes.
@@ -215,37 +200,13 @@ int caching_getattr(const char *path, struct stat *statbuf)
 
 	if (writeFuncToLog(cFSdata.logFile, "caching_getattr") != SUCCESS)
 	{
+		cerr << " ret errno" << endl;
 		return -errno;
 	}
 
+//	cerr << "fp in get: " << fullPath.c_str() << endl;
 	return checkSysCallFS(lstat(fullPath.c_str(), statbuf));
 }
-
-//int caching_getattr(const char *path, struct stat *statbuf)
-//{
-//	cerr << "!!!!!!!!!!!!!!!!!!!! getattr called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-//	string fullPath = getFullPath(string(path));
-//
-//	if (writeFuncToLog(cFSdata.logFile, "caching_getattr") != SUCCESS)
-//	{
-//		return -errno;
-//	}
-//
-//	return checkSysCallFS(lstat(fullPath.c_str(), statbuf));
-//
-//	int retstat;
-//	char fpath[PATH_MAX];
-//
-//	log_msg("\nbb_getattr(path=\"%s\", statbuf=0x%08x)\n",
-//			path, statbuf);
-//	bb_fullpath(fpath, path);
-//
-//	retstat = log_syscall("lstat", lstat(fpath, statbuf), 0);
-//
-//	log_stat(statbuf);
-//
-//	return retstat;
-//}
 
 /**
  * Get attributes from an open file
@@ -259,8 +220,8 @@ int caching_getattr(const char *path, struct stat *statbuf)
  *
  * Introduced in version 2.5
  */
-int caching_fgetattr(const char *path, struct stat *statbuf, 
-					struct fuse_file_info *fi)
+int caching_fgetattr(const char *path, struct stat *statbuf,
+					 struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! fgetattr called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 
@@ -303,13 +264,12 @@ int caching_access(const char *path, int mask)
 	return checkSysCallFS(access(fullPath.c_str(), mask));
 }
 
-
 /** File open operation
  *
  * No creation, or truncation flags (O_CREAT, O_EXCL, O_TRUNC)
  * will be passed to open().  Open should check if the operation
  * is permitted for the given flags.  Optionally open may also
- * initialize an arbitrary filehandle (fh) in the fuse_file_info 
+ * initialize an arbitrary filehandle (fh) in the fuse_file_info
  * structure, which will be passed to all file operations.
 
  * pay attention that the max allowed path is PATH_MAX (in limits.h).
@@ -341,27 +301,26 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	return retstat;
 }
 
-
 /** Read data from an open file
  *
  * Read should return exactly the number of bytes requested except
  * on EOF or error. For example, if you receive size=100, offest=0,
- * but the size of the file is 10, you will init only the first 
+ * but the size of the file is 10, you will init only the first
    ten bytes in the buff and return the number 10.
-   
-   In order to read a file from the disk, 
+
+   In order to read a file from the disk,
    we strongly advise you to use "pread" rather than "read".
-   Pay attention, in pread the offset is valid as long it is 
+   Pay attention, in pread the offset is valid as long it is
    a multipication of the block size.
-   More specifically, pread returns 0 for negative offset 
+   More specifically, pread returns 0 for negative offset
    and an offset after the end of the file
    (as long as the the rest of the requirements are fulfiiled).
    You are suppose to preserve this behavior also in your implementation.
 
  * Changed in version 2.2
  */
-int caching_read(const char *path, char *buf, size_t size, 
-				off_t offset, struct fuse_file_info *fi)
+int caching_read(const char *path, char *buf, size_t size,
+				 off_t offset, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (writeFuncToLog(cFSdata.logFile, "caching_read") != SUCCESS)
@@ -475,8 +434,8 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
  *
  * Introduced in version 2.3
  */
-int caching_readdir(const char *path, void *buf, 
-					fuse_fill_dir_t filler, 
+int caching_readdir(const char *path, void *buf,
+					fuse_fill_dir_t filler,
 					off_t offset, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! readdir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
@@ -554,10 +513,10 @@ int caching_rename(const char *path, const char *newpath)
  * fuse_context to all file operations and as a parameter to the
  * destroy() method.
  *
- 
-If a failure occurs in this function, do nothing (absorb the failure 
-and don't report it). 
-For your task, the function needs to return NULL always 
+
+If a failure occurs in this function, do nothing (absorb the failure
+and don't report it).
+For your task, the function needs to return NULL always
 (if you do something else, be sure to use the fuse_context correctly).
  * Introduced in version 2.3
  * Changed in version 2.6
@@ -576,10 +535,10 @@ void *caching_init(struct fuse_conn_info *conn)
  * Clean up filesystem
  *
  * Called on filesystem exit.
-  
-If a failure occurs in this function, do nothing 
-(absorb the failure and don't report it). 
- 
+
+If a failure occurs in this function, do nothing
+(absorb the failure and don't report it).
+
  * Introduced in version 2.3
  */
 void caching_destroy(void *userdata)
@@ -587,6 +546,13 @@ void caching_destroy(void *userdata)
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
 	writeFuncToLog(cFSdata.logFile, "caching_destroy");
+}
+
+void caching_destroy1(void *userdata)
+{
+//	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
+//
+//	writeFuncToLog(cFSdata.logFile, "caching_destroy");
 }
 
 
@@ -599,19 +565,19 @@ void caching_destroy(void *userdata)
  * _IOC_READ in area and if both are set in/out area.  In all
  * non-NULL cases, the area is of _IOC_SIZE(cmd) bytes.
  *
- * However, in our case, this function only needs to print 
+ * However, in our case, this function only needs to print
  cache table to the log file .
- * 
+ *
  * Introduced in version 2.8
  */
 int caching_ioctl (const char *, int cmd, void *arg,
-		struct fuse_file_info *, unsigned int flags, void *data)
+				   struct fuse_file_info *, unsigned int flags, void *data)
 {
 	return 0;
 }
 
 
-// Initialise the operations. 
+// Initialise the operations.
 // You are not supposed to change this function.
 void init_caching_oper()
 {
@@ -663,16 +629,13 @@ int main(int argc, char* argv[])
 	if (!validArgs(argc, argv))
 	{
 		cout << "Usage: CachingFileSystem rootdir mountdir numberOfBlocks "
-						"fOld fNew" << endl;
+				"fOld fNew" << endl;
 		return FAILURE;
 	}
 
 	// init the CFS data
-	cFSdata.rootDirPath = argv[ROOT_DIR_INDEX];
+	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]);
 	openLogFile(cFSdata.rootDirPath, cFSdata.logFile);
-
-
-
 
 
 //	closeLogFile(cFSdata.logFile);
@@ -683,7 +646,7 @@ int main(int argc, char* argv[])
 		argv[i] = NULL;
 	}
         argv[3] = (char*) "-f";
-        argv[2] = (char*) "-s";
+	argv[2] = (char*) "-s";
 	argc = 4;
 
 	int fuse_stat = fuse_main(argc, argv, &caching_oper, NULL);

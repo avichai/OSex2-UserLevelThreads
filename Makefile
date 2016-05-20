@@ -6,15 +6,14 @@ EXTRA_FILES = Makefile README
 all: CachingFileSystemApp
 
 CachingFileSystemApp : CachingFileSystem.cpp
-	${CC} ${CFLAGS} CachingFileSystem.cpp `pkg-config fuse --cflags --libs` -o caching
+#	${CC} ${CFLAGS} CashTemp.cpp `pkg-config fuse --cflags --libs` -o caching
+	${CC} ${CFLAGS} CachingFileSystem.cpp `pkg-config fuse --cflags --libs` -o caching	
 	caching /tmp/rootDir /tmp/mountDir 10 0.5 0.5
 	
 	
 	
 	
-	
-	
-	
+#	${CC} ${CFLAGS} CashTemp.cpp `pkg-config fuse --cflags --libs` -o caching
 	
 	
 	
