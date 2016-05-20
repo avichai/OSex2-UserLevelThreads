@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <string.h>
 #include <unistd.h>
+#include "FBR.h"
 
 using namespace std;
 
@@ -30,6 +31,7 @@ struct CFSdata
 {
 	string rootDirPath;
 	ofstream logFile;
+	Cache* cache;
 };
 
 #define Caching_DATA ((struct CFSdata *) fuse_get_context()->private_data)		//todo change place
@@ -135,36 +137,40 @@ static bool validArgs(int argc, char* argv[])
 /*
  * Opens the log file.
  */
-static void openLogFile(string rootDirPath, ofstream &logFile)
+static void openLogFile()
 {                                                          // todo: check if open fails
-	logFile.open(rootDirPath + ".filesystem.log");        // todo: add ios::app flag
-	if (logFile.fail())
+	cFSdata.logFile.open(cFSdata.rootDirPath + ".filesystem.log", ios::app);        // todo: add ios::app flag
+	if (cFSdata.logFile.fail())
 	{
 		exceptionHandler("open");
 	}
 }
 
 /*
+ * Closes the log file.                                                       //todo should we close?
+ */
+static void closeLogFile()
+{
+	cFSdata.logFile.close();
+}
+
+/*
  * Writes the given function to the log file.
  */
-static int writeFuncToLog(ofstream &logFile, string funcName)
+static int writeFuncToLog(string funcName)
 {
+	openLogFile();
+
 	time_t seconds = time(NULL);
-	logFile << seconds << " " << funcName << endl;
+	cFSdata.logFile << seconds << " " << funcName << endl;
 	if (seconds == (time_t) TIME_FAILURE)
 	{
 		return -errno;
 	}
+	closeLogFile();
+
 	return SUCCESS;
 }
-
-///*
-// * Closes the log file.                                                       //todo should we close?
-// */
-//static void closeLogFile(ofstream &logFile)
-//{
-//	logFile.close();
-//}
 
 /*
  * Returns zero if the result is zero, and -errno otherwise.
@@ -198,7 +204,7 @@ int caching_getattr(const char *path, struct stat *statbuf)
 	cerr << "!!!!!!!!!!!!!!!!!!!! getattr called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	string fullPath = getFullPath(string(path));
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_getattr") != SUCCESS)
+	if (writeFuncToLog("caching_getattr") != SUCCESS)
 	{
 		cerr << " ret errno" << endl;
 		return -errno;
@@ -232,7 +238,7 @@ int caching_fgetattr(const char *path, struct stat *statbuf,
 	if (!strcmp(path, "/"))
 		return caching_getattr(path, statbuf);
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_fgetattr") != SUCCESS)
+	if (writeFuncToLog("caching_fgetattr") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -256,7 +262,7 @@ int caching_access(const char *path, int mask)
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_access called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	string fullPath = getFullPath(string(path));
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_access") != SUCCESS)
+	if (writeFuncToLog("caching_access") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -284,15 +290,16 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	int fd;
 	string fullPath = getFullPath(string(path));
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_open") != SUCCESS)
+	if (writeFuncToLog("caching_open") != SUCCESS)
 	{
 		return -errno;
 	}
 
+
 	// if the open call succeeds, my retstat is the file descriptor,
 	// else it's -errno.  I'm making sure that in that case the saved
 	// file descriptor is exactly -1.
-	fd = open(fullPath.c_str(), fi->flags);
+	fd = open(fullPath.c_str(), O_RDONLY | O_DIRECT | O_SYNC);
 	if (fd < SUCCESS)
 		return -errno;
 
@@ -322,12 +329,13 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	if (writeFuncToLog(cFSdata.logFile, "caching_read") != SUCCESS)
-	{
-		return -errno;
-	}
-	return checkSysCallFS(pread(fi->fh, buf, size, offset));
+	return cFSdata.cache->readData(buf, size, offset, fi);
+//	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
+//	if (writeFuncToLog("caching_read") != SUCCESS)
+//	{
+//		return -errno;
+//	}
+//	return checkSysCallFS(pread(fi->fh, buf, size, offset));
 }
 
 /** Possibly flush cached data
@@ -356,7 +364,7 @@ int caching_read(const char *path, char *buf, size_t size,
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_flush called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	if (writeFuncToLog(cFSdata.logFile, "caching_flush") != SUCCESS)
+	if (writeFuncToLog("caching_flush") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -381,7 +389,7 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_release called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	if (writeFuncToLog(cFSdata.logFile, "caching_release") != SUCCESS)
+	if (writeFuncToLog("caching_release") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -401,7 +409,7 @@ int caching_release(const char *path, struct fuse_file_info *fi)
 int caching_opendir(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_opendir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	if (writeFuncToLog(cFSdata.logFile, "caching_opendir") != SUCCESS)
+	if (writeFuncToLog("caching_opendir") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -440,7 +448,7 @@ int caching_readdir(const char *path, void *buf,
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! readdir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_readdir") != SUCCESS)
+	if (writeFuncToLog( "caching_readdir") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -483,7 +491,7 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_releasedir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_releasedir") != SUCCESS)
+	if (writeFuncToLog("caching_releasedir") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -496,7 +504,7 @@ int caching_rename(const char *path, const char *newpath)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_rename called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
-	if (writeFuncToLog(cFSdata.logFile, "caching_rename") != SUCCESS)
+	if (writeFuncToLog("caching_rename") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -525,7 +533,7 @@ void *caching_init(struct fuse_conn_info *conn)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_init called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
-	writeFuncToLog(cFSdata.logFile, "caching_init");
+	writeFuncToLog("caching_init");
 
 	return Caching_DATA;
 }
@@ -545,16 +553,8 @@ void caching_destroy(void *userdata)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
-	writeFuncToLog(cFSdata.logFile, "caching_destroy");
+	writeFuncToLog("caching_destroy");
 }
-
-void caching_destroy1(void *userdata)
-{
-//	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
-//
-//	writeFuncToLog(cFSdata.logFile, "caching_destroy");
-}
-
 
 /**
  * Ioctl from the FUSE sepc:
@@ -635,19 +635,16 @@ int main(int argc, char* argv[])
 
 	// init the CFS data
 	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]);
-	openLogFile(cFSdata.rootDirPath, cFSdata.logFile);
-
-
-//	closeLogFile(cFSdata.logFile);
+	cFSdata.cache = new Cache(1,2,3);											//todo create it!!!
 
 	init_caching_oper();
 	argv[1] = argv[2];
 	for (int i = 2; i< (argc - 1); i++){
 		argv[i] = NULL;
 	}
-        argv[3] = (char*) "-f";
+//        argv[3] = (char*) "-f";
 	argv[2] = (char*) "-s";
-	argc = 4;
+	argc = 3;
 
 	int fuse_stat = fuse_main(argc, argv, &caching_oper, NULL);
 	return fuse_stat;
