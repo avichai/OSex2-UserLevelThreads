@@ -51,7 +51,7 @@ private:
 
 
 public:
-    Cache(size_t nOldBlk, blkSize, size_t nNewBlk, size_t cacheSize);
+    Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize);
 
     virtual ~Cache();
 
