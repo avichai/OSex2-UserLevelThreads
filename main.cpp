@@ -8,17 +8,20 @@
 
 using namespace std;
 
-struct A {int a; double d;};
+static bool isDouble(char* str, double &percentage)
+{
+    char* end  = 0;
+    percentage = strtod(str, &end);
+    return (*end == '\0') && (end != str);
+}
+
 
 int main()
 {
-
-    A a;
-    a = {.a = 3, .d = 34.3};
-
-    cout << a.a <<" " <<a.d << endl;
-    cout << "Usage: CachingFileSystem rootdir mountdir numberOf"
-                    "Blocks fOld fNew" << endl;
+    double d;
+    cout << isDouble("213.2", &d) << endl;
 
     return 0;
 }
+
+
