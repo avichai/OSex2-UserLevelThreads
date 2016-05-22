@@ -68,8 +68,8 @@ public:
 
     virtual ~Cache();
 
-    int readData(char *buf, size_t size,
-                   off_t offset, struct fuse_file_info *fi);
+//    int readData(char *buf, size_t size,
+//                   off_t offset, struct fuse_file_info *fi);
 
     inline int getBlkSize() const {
         return blkSize;
