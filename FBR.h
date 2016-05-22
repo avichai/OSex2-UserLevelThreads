@@ -11,7 +11,7 @@ using namespace std;
 
 
 typedef list<Block*> BlkList;
-
+typedef list<size_t> IdxList;
 
 /**
  * A file's block of data.
@@ -62,7 +62,7 @@ private:
     size_t nNewBlk;
     size_t cacheSize;
 
-    void divideBlocks(int fd, size_t lowerIdx, size_t upperIdx, BlkList &cacheHitList, BlkList &cacheMissList);
+    void divideBlocks(int fd, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
     void removeBlockBFR();
 
 public:
