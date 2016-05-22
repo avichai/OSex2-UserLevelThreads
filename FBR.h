@@ -4,26 +4,31 @@
 #include <iostream>
 #include <list>
 
+
 using namespace std;
 
+
+/**
+ * A file's block of data.
+ */
 class Block {
 private:
     int fd;
-    size_t  blkInd;
+    size_t  index;
     size_t refCounter;
     string data;
 
 
 public:
-    Block(int fd, size_t numBlk, size_t refCounter, const string &data) :
-            fd(fd), blkInd(blkInd), refCounter(refCounter), data(data) {}
+    Block(int fd, size_t index, size_t refCounter, const string &data) :
+            fd(fd), index(index), refCounter(refCounter), data(data) {}
 
     inline int getFd() const {
         return fd;
     }
 
-    inline size_t getNumBlk() const {
-        return blkInd;
+    inline size_t getIndex() const {
+        return index;
     }
 
     inline size_t getRefCounter() const {
@@ -41,6 +46,9 @@ public:
 };
 
 
+/**
+ * A class represents a cache which uses the FBR algorithm.
+ */
 class Cache {
 private:
     list<Block*> *blockList;
