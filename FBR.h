@@ -10,6 +10,9 @@
 using namespace std;
 
 
+typedef list<Block*> BlkList;
+
+
 /**
  * A file's block of data.
  */
@@ -52,14 +55,14 @@ public:
  */
 class Cache {
 private:
-    list<Block*> *blockList;
+    BlkList* blockList;
     unordered_map<int, unordered_set<size_t>*>* blockMap;
     blksize_t blkSize;
     size_t nOldBlk;
     size_t nNewBlk;
     size_t cacheSize;
 
-    bool isBlockInCache(int fd, size_t index);
+    void divideBlocks(int fd, size_t lowerIdx, size_t upperIdx, BlkList &cacheHitList, BlkList &cacheMissList);
     void removeBlockBFR();
 
 public:
