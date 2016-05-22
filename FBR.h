@@ -15,27 +15,27 @@ class Block;
 class Cache;
 
 typedef list<Block*> BlkList;
-typedef list<int> IdxList;
+typedef list<size_t> IdxList;
 
 /**
  * A file's block of data.
  */
 class Block {
 private:
-    int fd;
-    int index;
+    string path;
+    size_t index;
     int refCounter;
     string data;
 
 public:
-    Block(int fd, int index, const string &data) :
-            fd(fd), index(index), refCounter(REF_COUNTER_INIT), data(data) {}
+    Block(string path, size_t index, const string &data) :
+            path(path), index(index), refCounter(REF_COUNTER_INIT), data(data) {}
 
-    inline int getFd() const {
-        return fd;
+    inline string getPath() const {
+        return path;
     }
 
-    inline int getIndex() const {
+    inline size_t getIndex() const {
         return index;
     }
 
@@ -60,22 +60,22 @@ public:
 class Cache {
 private:
     BlkList* blocksList;
-    unordered_map<int, unordered_set<int>*>* blocksMap;
-    int blkSize;
+    unordered_map<string, unordered_set<int>*>* blocksMap;
+    size_t blkSize;
     int nOldBlks;
     int nNewBlks;
     int cacheSize;
 
-    void divideBlocks(int fd, int lowerIdx, int upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
+    void divideBlocks(string path, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
     void removeBlockBFR();
 
 public:
-    Cache(int blkSize, int nOldBlks, int nNewBlks, int cacheSize);
+    Cache(size_t blkSize, int nOldBlks, int nNewBlks, int cacheSize);
 
     virtual ~Cache();
 
-    int readData(char *buf, int size,
-                   off_t offset, int fd);
+    int readData(char *buf, size_t size,
+                   off_t offset, int fd, string path);
 };
 
 

@@ -12,7 +12,7 @@
 /*
  * Returns true iff the index is found in the list.
  */
-static bool inList(list<int> &l, int index) {
+static bool inList(IdxList &l, size_t index) {
     for (auto it = l.begin(); it != l.end(); ++it) {
         if (*it == index) {
             return true;
@@ -24,7 +24,7 @@ static bool inList(list<int> &l, int index) {
 /**
  * Cache constructor.
  */
-Cache::Cache(int blkSize, int nOldBlks, int nNewBlks, int cacheSize) :
+Cache::Cache(size_t blkSize, int nOldBlks, int nNewBlks, int cacheSize) :
         blkSize(blkSize), nOldBlks(nOldBlks), nNewBlks(nNewBlks),
         cacheSize(cacheSize) {
     blocksList = new list<Block*>();
@@ -45,7 +45,7 @@ Cache::~Cache() {
  * todo check if no need to call read
  * todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
  */
-int Cache::readData(char *buf, int size, off_t offset, int fd) {
+int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     // checks if the call is valid.
     off_t fileSize = lseek(fd, 0, SEEK_END);
     if (fileSize == LSEEK_FALILURE)
@@ -54,16 +54,16 @@ int Cache::readData(char *buf, int size, off_t offset, int fd) {
     }
 
     // read bytes from start to end
-    int start = (int) offset;
-    int end = min(start + size, (int) fileSize); // todo maybe + 1
+    size_t start = (size_t) offset;
+    size_t end = min(start + size, (size_t) fileSize); // todo maybe + 1
 
     // the block indexes needed to perform the read task
-    int lowerIdx = start / blkSize;
-    int upperIdx = (int) ceil(end / blkSize);
-    int diffIdx = upperIdx - lowerIdx;
+    size_t lowerIdx = start / blkSize;
+    size_t upperIdx = (size_t) ceil(end / blkSize);
+    size_t diffIdx = upperIdx - lowerIdx;
 
     IdxList cacheHitList, cacheMissList;
-    divideBlocks(fd, lowerIdx, upperIdx, cacheHitList, cacheMissList);
+    divideBlocks(path, lowerIdx, upperIdx, cacheHitList, cacheMissList);
 
     string dataArr[diffIdx];
     // cache hits
@@ -71,8 +71,8 @@ int Cache::readData(char *buf, int size, off_t offset, int fd) {
         int blkPosition = 0;     // the block's position in the blocks list.
         for (Block* block : *blocksList) {
             ++blkPosition;
-            int blkIndex = block->getIndex();
-            if (block->getFd() == fd && inList(cacheHitList, blkIndex)) {
+            size_t blkIndex = block->getIndex();
+            if (block->getPath() == path && inList(cacheHitList, blkIndex)) {
                 dataArr[blkIndex - lowerIdx] = block->getData();
                 if (blkPosition > nNewBlks) {
                     block->incRefCounter();
@@ -82,19 +82,19 @@ int Cache::readData(char *buf, int size, off_t offset, int fd) {
         }
     }
     // cache misses
-    for (int index : cacheMissList) {
+    for (size_t index : cacheMissList) {
         if (blocksList->size() == cacheSize) {
             removeBlockBFR();
         }
 
         char buffer[blkSize];
-        if (pread(fd, buffer, blkSize, start) < SUCCESS) {
+        if (pread(fd, buffer, blkSize, start) < SUCCESS) { // todo set offset
             return -errno;
         }
         string bufferStr = buffer;
         Block* block;
         try {
-            block = new(fd, index, bufferStr);
+            block = new Block(path, index, bufferStr);
         } catch(bad_alloc) {
             return -errno;
         }
@@ -132,13 +132,13 @@ void Cache::removeBlockBFR() {
 
 }
 
-void Cache::divideBlocks(int fd, int lowerIdx, int upperIdx,
+void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
                          IdxList &cacheHitList, IdxList &cacheMissList)
 {
     size_t size = upperIdx - lowerIdx + 1;
 
     //no fd in table;
-    if (blocksMap->find(fd) == blocksMap->end())
+    if (blocksMap->find(path) == blocksMap->end())
     {
         for (size_t i = lowerIdx; i <= upperIdx; ++i)
         {
@@ -151,7 +151,7 @@ void Cache::divideBlocks(int fd, int lowerIdx, int upperIdx,
     {
         for (size_t i = lowerIdx; i <= upperIdx; ++i)
         {
-            if(blocksMap[fd].find(i) == blocksMap[fd].end())
+            if(blocksMap[path].find(i) == blocksMap[path].end())
             {
                 cacheMissList.push_back(i);
             }

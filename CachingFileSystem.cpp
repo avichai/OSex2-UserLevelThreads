@@ -24,7 +24,7 @@ using namespace std;
 #define VALID_N_ARGS 6
 #define DECIMAL 10
 #define WORKING_DIR "/tmp"
-
+#define READ_MASK 3
 
 
 
@@ -286,9 +286,13 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	// if the open call succeeds, my retstat is the file descriptor,
 	// else it's -errno.  I'm making sure that in that case the saved
 	// file descriptor is exactly -1.
+	if ((fi->flags & READ_MASK) != O_RDONLY) {
+		return -EACCES;		// todo check ret val
+	}
 	fd = open(fullPath.c_str(), O_RDONLY | O_DIRECT | O_SYNC);
-	if (fd < SUCCESS)
+	if (fd < SUCCESS) {
 		return -errno;
+	}
 
 	fi->fh = fd;
 	// fi->direct_io = true;													todo maybe change this.
@@ -317,13 +321,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
 {
-	return cFSdata.cache->readData(buf, size, offset, fi);
-//	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-//	if (writeFuncToLog("caching_read") != SUCCESS)
-//	{
-//		return -errno;
-//	}
-//	return checkSysCallFS(pread(fi->fh, buf, size, offset));
+	return cFSdata.cache->readData(buf, size, offset, fi->fh);
 }
 
 /** Possibly flush cached data
