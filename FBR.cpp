@@ -8,90 +8,118 @@
 #define SUCCESS 0
 #define LSEEK_FALILURE -1
 
+
+/*
+ * Returns true iff the index is found in the list.
+ */
+static bool inList(list<int> &l, int index) {
+    for (auto it = l.begin(); it != l.end(); ++it) {
+        if (*it == index) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Cache constructor.
  */
-Cache::Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize) :
-        nOldBlk(nOldBlk), blkSize(blkSize), nNewBlk(nNewBlk),
+Cache::Cache(int blkSize, int nOldBlks, int nNewBlks, int cacheSize) :
+        blkSize(blkSize), nOldBlks(nOldBlks), nNewBlks(nNewBlks),
         cacheSize(cacheSize) {
-    blockList = new list<Block*>();
+    blocksList = new list<Block*>();
 }
 
 /**
  * Cache destructor.
  */
 Cache::~Cache() {
-    for (Block* block : *blockList) {
+    for (Block* block : *blocksList) {
         delete block;
     }
-    delete blockList;
+    delete blocksList;
 }
 
-//    if (fileSize < offset || size < 0 || offset < 0)
-//    {
-//        return SUCCESS;     //todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
-//    }
 /**
  * todo
  * todo check if no need to call read
-// */
-//int Cache::readData(char *buf, size_t size, off_t offset, int fd) {
-//    // checks if the call is valid.
-//    off_t fileSize = lseek(fd, 0, SEEK_END);
-//    if (fileSize == LSEEK_FALILURE)
-//    {
-//        return -errno;
-//    }
-//
-//    // read bytes from start to end
-//    size_t start = (size_t) offset;
-//    size_t end = min(start + size, (size_t) fileSize);
-//
-//    // the block indexes needed to perform the read task
-//    size_t lowerIdx = start / blkSize;
-//    size_t upperIdx = (size_t) ceil(end / blkSize);
-//    list<Block*> cacheHitList, cacheMissList;
-//    divideBlocks(fd, lowerIdx, upperIdx, cacheHitList, cacheMissList);
-//    size_t diffIdx = upperIdx - lowerIdx;
-//
-//    // Retrieving the needed blocks to perform the read task
-//    string dataArr[diffIdx];
-//    for (Block* block : cacheHitList) {
-//
-//    }
-//    for (Block* block : cacheMissList) {
-//
-//    }
-//
-//    // copying the requested data to the buffer
-//    string data = "";
-//    for (string blkData : dataArr) {
-//        data += blkData;
-//    }
-//    data.substr(start % blkSize, end % blkSize);
-//    strcpy(buf, data.c_str());
-//
-//    return 0;
-//}
+ * todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
+ */
+int Cache::readData(char *buf, int size, off_t offset, int fd) {
+    // checks if the call is valid.
+    off_t fileSize = lseek(fd, 0, SEEK_END);
+    if (fileSize == LSEEK_FALILURE)
+    {
+        return -errno;
+    }
 
-///*
-// * checks if the given block residents in the cache (in O(1)).
-// */
-//bool Cache::isBlockInCache(int fd, size_t index) {
-//    if(blockMap[fd].find(index) == blockMap[fd].end())
-//    {
-//        return false;
-//    }
-//    return true;
-//}
+    // read bytes from start to end
+    int start = (int) offset;
+    int end = min(start + size, (int) fileSize); // todo maybe + 1
+
+    // the block indexes needed to perform the read task
+    int lowerIdx = start / blkSize;
+    int upperIdx = (int) ceil(end / blkSize);
+    int diffIdx = upperIdx - lowerIdx;
+
+    IdxList cacheHitList, cacheMissList;
+    divideBlocks(fd, lowerIdx, upperIdx, cacheHitList, cacheMissList);
+
+    string dataArr[diffIdx];
+    // cache hits
+    if (!cacheHitList.empty()) {
+        int blkPosition = 0;     // the block's position in the blocks list.
+        for (Block* block : *blocksList) {
+            ++blkPosition;
+            int blkIndex = block->getIndex();
+            if (block->getFd() == fd && inList(cacheHitList, blkIndex)) {
+                dataArr[blkIndex - lowerIdx] = block->getData();
+                if (blkPosition > nNewBlks) {
+                    block->incRefCounter();
+                }
+                cacheHitList.remove(blkIndex);
+            }
+        }
+    }
+    // cache misses
+    for (int index : cacheMissList) {
+        if (blocksList->size() == cacheSize) {
+            removeBlockBFR();
+        }
+
+        char buffer[blkSize];
+        if (pread(fd, buffer, blkSize, start) < SUCCESS) {
+            return -errno;
+        }
+        string bufferStr = buffer;
+        Block* block;
+        try {
+            block = new(fd, index, bufferStr);
+        } catch(bad_alloc) {
+            return -errno;
+        }
+        dataArr[index - lowerIdx] = bufferStr;
+        blocksList->push_front(block);
+    }
+
+    // copying the requested data to the buffer
+    string data = "";
+    for (string blkData : dataArr) {
+        data += blkData;
+    }
+    data.substr(start % blkSize, end % blkSize);
+    strcpy(buf, data.c_str());      // todo \0 needed to be inserted manually?
+
+    return 0;
+}
 
 /*
  * Chooses a victim block to evict from the cache applying the BFR algorithm.
  */
 void Cache::removeBlockBFR() {
-    auto it = --(blockList->end());
+    auto it = --(blocksList->end());
     Block* blkToRemove = (*it);
-    for (unsigned int i = 0; i < nOldBlk; ++i)
+    for (unsigned int i = 0; i < nOldBlks; ++i)
     {
         if ((*it)->getRefCounter() < blkToRemove->getRefCounter())
         {
@@ -99,18 +127,18 @@ void Cache::removeBlockBFR() {
         }
         --it;
     }
-    blockList->remove(blkToRemove);
+    blocksList->remove(blkToRemove);
     delete blkToRemove;
 
 }
 
-void Cache::divideBlocks(int fd, size_t lowerIdx, size_t upperIdx,
+void Cache::divideBlocks(int fd, int lowerIdx, int upperIdx,
                          IdxList &cacheHitList, IdxList &cacheMissList)
 {
     size_t size = upperIdx - lowerIdx + 1;
 
     //no fd in table;
-    if (blockMap->find(fd) == blockMap->end())
+    if (blocksMap->find(fd) == blocksMap->end())
     {
         for (size_t i = lowerIdx; i <= upperIdx; ++i)
         {
@@ -123,7 +151,7 @@ void Cache::divideBlocks(int fd, size_t lowerIdx, size_t upperIdx,
     {
         for (size_t i = lowerIdx; i <= upperIdx; ++i)
         {
-            if(blockMap[fd].find(i) == blockMap[fd].end())
+            if(blocksMap[fd].find(i) == blocksMap[fd].end())
             {
                 cacheMissList.push_back(i);
             }

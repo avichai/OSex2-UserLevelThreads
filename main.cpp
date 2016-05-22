@@ -1,7 +1,3 @@
-//
-// Created by roee28c on 5/15/16.
-//
-
 #include <iostream>
 #include <linux/limits.h>
 #include <tgmath.h>
@@ -88,15 +84,15 @@ int main()
 
     list<Block*> *blockList = new list<Block*>();
 
-    Block* blk1 = new Block(1,3,3,"aaa");
-    Block* blk2 = new Block(2,5,2,"bbb");
-    Block* blk3 = new Block(3,12,15,"ccc");
-    Block* blk4 = new Block(4,3,3,"ddd");
-    Block* blk5 = new Block(5,5,5,"eee");
-    Block* blk6 = new Block(6,8,4,"fff");
-    Block* blk7 = new Block(7,13,13,"ggg");
-    Block* blk8 = new Block(8,12,13,"hhh");
-    Block* blk9 = new Block(9, 2,2,"iii");
+    Block* blk1 = new Block(1,3,"aaa");
+    Block* blk2 = new Block(2,2,"bbb");
+    Block* blk3 = new Block(3,15,"ccc");
+    Block* blk4 = new Block(4,3,"ddd");
+    Block* blk5 = new Block(5,5,"eee");
+    Block* blk6 = new Block(6,4,"fff");
+    Block* blk7 = new Block(7,13,"ggg");
+    Block* blk8 = new Block(8,13,"hhh");
+    Block* blk9 = new Block(9,2,"iii");
 
 
     blockList->push_front(blk4);
