@@ -10,28 +10,28 @@
 #define REF_COUNTER_INIT 1
 
 
-using namespace std;
 class Block;
 class Cache;
 
-typedef list<Block*> BlkList;
-typedef list<size_t> IdxList;
+typedef std::list<Block*> BlkList;
+typedef std::list<size_t> IdxList;
+
 
 /**
  * A file's block of data.
  */
 class Block {
 private:
-    string path;
+    std::string path;
     size_t index;
     int refCounter;
-    string data;
+    std::string data;
 
 public:
-    Block(string path, size_t index, const string &data) :
+    Block(std::string path, size_t index, const std::string &data) :
             path(path), index(index), refCounter(REF_COUNTER_INIT), data(data) {}
 
-    inline string getPath() const {
+    inline std::string getPath() const {
         return path;
     }
 
@@ -43,7 +43,7 @@ public:
         return refCounter;
     }
 
-    inline const string &getData() const {
+    inline const std::string &getData() const {
         return data;
     }
 
@@ -60,21 +60,21 @@ public:
 class Cache {
 private:
     BlkList* blocksList;
-    unordered_map<string, unordered_set<size_t>*>* blocksMap;
+    std::unordered_map<std::string, std::unordered_set<size_t>*>* blocksMap;
     size_t blkSize;
-    int nOldBlks;
-    int nNewBlks;
-    int cacheSize;
+    unsigned int nOldBlks;       // todo maybe unsigned int or size_t
+    unsigned int nNewBlks;
+    unsigned int cacheSize;
 
-    void divideBlocks(string path, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
+    void divideBlocks(std::string path, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
     void removeBlockBFR();
 
 public:
-    Cache(size_t blkSize, int nOldBlks, int nNewBlks, int cacheSize);
+    Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsigned int cacheSize);
 
     virtual ~Cache();
 
-    int readData(char *buf, size_t size, off_t offset, int fd, string path);
+    int readData(char *buf, size_t size, off_t offset, int fd, std::string path);
 };
 
 

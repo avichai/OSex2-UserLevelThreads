@@ -5,8 +5,12 @@
 #include <assert.h>
 
 
+using namespace std;
+
+
 #define SUCCESS 0
 #define LSEEK_FALILURE -1
+
 
 
 /*
@@ -24,7 +28,7 @@ static bool inList(IdxList &l, size_t index) {
 /**
  * Cache constructor.
  */
-Cache::Cache(size_t blkSize, int nOldBlks, int nNewBlks, int cacheSize) :
+Cache::Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsigned int cacheSize) :
         blkSize(blkSize), nOldBlks(nOldBlks), nNewBlks(nNewBlks),
         cacheSize(cacheSize) {
     blocksList = new list<Block*>();
@@ -68,7 +72,7 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     string dataArr[diffIdx];
     // cache hits
     if (!cacheHitList.empty()) {
-        int blkPosition = 0;     // the block's position in the blocks list.
+        unsigned int blkPosition = 0;     // the block's position in the blocks list.
         for (Block* block : *blocksList) {
             ++blkPosition;
             size_t blkIndex = block->getIndex();
