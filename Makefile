@@ -5,10 +5,10 @@ EXTRA_FILES = Makefile README
 
 all: CachingFileSystemApp
 
-CachingFileSystemApp : CachingFileSystem.cpp
+CachingFileSystemApp : CachingFileSystem.cpp FBR.h FBR.cpp
 #	${CC} ${CFLAGS} CashTemp.cpp `pkg-config fuse --cflags --libs` -o caching
-	${CC} ${CFLAGS} CachingFileSystem.cpp `pkg-config fuse --cflags --libs` -o caching	
-	caching /tmp/rootDir /tmp/mountDir 10 0.5 0.5
+	${CC} ${CFLAGS} CachingFileSystem.cpp FBR.cpp  `pkg-config fuse --cflags --libs` -o caching	
+	caching /tmp/root /tmp/mount 10 0.5 0.5
 	
 	
 	
@@ -24,8 +24,15 @@ CachingFileSystemApp : CachingFileSystem.cpp
 	
 	
 un:
-	fusermount -u /tmp/mountDir 	
+	fusermount -u /tmp/mount
 	
+dirs:
+	mkdir /tmp/root
+	mkdir /tmp/mount
+	mkdir /tmp/root/d1
+	touch /tmp/root/f1
+	touch /tmp/root/d1/f2
+	echo dfjas adksjgdkjasg ldfkja klajgl kjasg > /tmp/root/f1
 
 	
 	

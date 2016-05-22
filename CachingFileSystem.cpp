@@ -103,42 +103,50 @@ static bool isDouble(char* str, double &percentage)
  * Returns true iff the string represents a positive int, and assigns the int
  * value to the given reference.
  */
-static bool isPosInt(char* str, int &cacheSize)
+static bool isPosInt(char* str, unsigned int &cacheSize)
 {
 	char* end  = 0;
-	cacheSize = strtol(str, &end, DECIMAL);
-	return (*end == '\0') && (end != str) && cacheSize > 0;
+	int tmpCacheSize = strtol(str, &end, DECIMAL);
+	cacheSize = (unsigned int) tmpCacheSize;
+
+	return (*end == '\0') && (end != str) && (tmpCacheSize > 0);
 }
 
 /*
  * Validates the fOld and fNew args and assigns old/new number of blocks.
  */
-static bool validPercentage(double percentage, int cacheSize, int &nBlks)
+static bool validPercentage(double percentage, unsigned int cacheSize, unsigned int &nBlks)
 {
-	nBlks = (int) (percentage * cacheSize);
-	return (percentage > 0) && (percentage < 1) && (nBlks > 0);
+	int tmpNBlks = (int) (percentage * cacheSize);
+	nBlks = (unsigned int) tmpNBlks;
+	return (percentage > 0) && (percentage < 1) && (tmpNBlks > 0);
 }
 
 /*
  * Validates the block args.
  */
-static bool validBlockArgs(char* argv[], int &nOldblks, int &nNewBlks, int &cacheSize)
+static bool validBlockArgs(char* argv[], unsigned int &nOldblks, unsigned int &nNewBlks, unsigned int &cacheSize)
 {
 //	int nBlocks;
 	double fOld, fNew;
+
 	return isPosInt(argv[N_BLOCKS_INDEX], cacheSize) &&
 		   isDouble(argv[F_OLD_INDEX], fOld) &&
 		   isDouble(argv[F_NEW_INDEX], fNew) &&
 		   validPercentage(fOld, cacheSize, nOldblks) &&
 		   validPercentage(fNew, cacheSize, nNewBlks) &&
 		   fOld + fNew <= 1;
+
+
 }
+
 
 /*
  * Validates the program's arguments.
  */
-static bool validArgs(int argc, char* argv[], int &nOldblks, int &nNewBlks, int &cacheSize)
+static bool validArgs(int argc, char* argv[], unsigned int &nOldblks, unsigned int &nNewBlks, unsigned int &cacheSize)
 {
+
 	return argc == VALID_N_ARGS &&
 		   validDir(argv[ROOT_DIR_INDEX]) &&
 		   validDir(argv[MOUNT_DIR_INDEX]) &&
@@ -151,7 +159,7 @@ static bool validArgs(int argc, char* argv[], int &nOldblks, int &nNewBlks, int 
 static int writeFuncToLog(string funcName)
 {
 	// openning the log file
-	cFSdata.logFile.open(cFSdata.rootDirPath + ".filesystem.log", ios::app);        // todo: add ios::app flag
+	cFSdata.logFile.open(cFSdata.rootDirPath +  ".filesystem.log", ios::app);        // todo: add ios::app flag
 	if (cFSdata.logFile.fail())
 	{
 		return -errno; 		// todo how to handle this exception (not like this!).
@@ -319,7 +327,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
 {
-	return cFSdata.cache->readData(buf, size, offset, fi->fh, path);
+	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);
 }
 
 /** Possibly flush cached data
@@ -606,7 +614,7 @@ void init_caching_oper()
 int main(int argc, char* argv[])
 {
 	// validate and assigns args
-	int nOldBlks, nNewBlks, cacheSize;
+	unsigned int nOldBlks, nNewBlks, cacheSize;
 	if (!validArgs(argc, argv, nOldBlks, nNewBlks, cacheSize))
 	{
 		cout << "Usage: CachingFileSystem rootdir mountdir numberOfBlocks "
@@ -615,10 +623,10 @@ int main(int argc, char* argv[])
 	}
 
 	// init the CFS data
-	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]);
+	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]) + "/";
 	struct stat fi;
 	checkSysCallMain(stat(WORKING_DIR, &fi), "stat");
-	int blkSize = (int) fi.st_blksize;
+	size_t blkSize = (size_t) fi.st_blksize;
 	try {
 		cFSdata.cache = new Cache(blkSize, nOldBlks, nNewBlks, cacheSize);
 	} catch (bad_alloc) {
@@ -630,10 +638,11 @@ int main(int argc, char* argv[])
 	for (int i = 2; i< (argc - 1); i++){
 		argv[i] = NULL;
 	}
-//        argv[3] = (char*) "-f";
+        argv[3] = (char*) "-f";
 	argv[2] = (char*) "-s";
-	argc = 3;
+	argc = 4;
 
 	int fuse_stat = fuse_main(argc, argv, &caching_oper, NULL);
 	return fuse_stat;
 }
+
