@@ -304,6 +304,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 		return -errno;
 
 	fi->fh = fd;
+	// fi->direct_io = true;													todo maybe change this.
 
 	return retstat;
 }

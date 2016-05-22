@@ -2,7 +2,7 @@
 
 
 Cache::Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize) :
-        nOldBlk(nOldBlk), nNewBlk(nNewBlk), cacheSize(cacheSize) {
+        nOldBlk(nOldBlk), blkSize(blkSize), nNewBlk(nNewBlk), cacheSize(cacheSize) {
     blockList = new list();
 }
 

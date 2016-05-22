@@ -51,12 +51,17 @@ private:
 
 
 public:
-    Cache(size_t nOldBlk, blkSize, size_t nNewBlk, size_t cacheSize);
+    Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize);
 
     virtual ~Cache();
 
     int readData(char *buf, size_t size,
                    off_t offset, struct fuse_file_info *fi);
+
+public:
+    inline int getBlkSize() const {
+        return blkSize;
+    }
 
 };
 
