@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <list>
+#include <unordered_map>
+#include <unordered_set>
 
 
 using namespace std;
@@ -52,11 +54,14 @@ public:
 class Cache {
 private:
     list<Block*> *blockList;
-    int blkSize;
+    unordered_map<int, unordered_set<size_t>*>* blockMap;
+    blksize_t blkSize;
     size_t nOldBlk;
     size_t nNewBlk;
     size_t cacheSize;
 
+    bool isBlockInCache(int fd, size_t index);
+    void removeBlockBFR();
 
 public:
     Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize);
@@ -66,7 +71,6 @@ public:
     int readData(char *buf, size_t size,
                    off_t offset, struct fuse_file_info *fi);
 
-public:
     inline int getBlkSize() const {
         return blkSize;
     }
