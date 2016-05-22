@@ -197,7 +197,6 @@ int caching_getattr(const char *path, struct stat *statbuf)
 		return -errno;
 	}
 
-//	cerr << "fp in get: " << fullPath.c_str() << endl;
 	return checkSysCallFS(lstat(fullPath.c_str(), statbuf));
 }
 
@@ -273,7 +272,6 @@ int caching_access(const char *path, int mask)
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_open called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	int retstat = 0;
 	int fd;
 	string fullPath = getFullPath(string(path));
 
@@ -297,7 +295,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	fi->fh = fd;
 	// fi->direct_io = true;													todo maybe change this.
 
-	return retstat;
+	return SUCCESS;
 }
 
 /** Read data from an open file
@@ -321,7 +319,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
 {
-	return cFSdata.cache->readData(buf, size, offset, fi->fh);
+	return cFSdata.cache->readData(buf, size, offset, fi->fh, path);
 }
 
 /** Possibly flush cached data
@@ -350,12 +348,7 @@ int caching_read(const char *path, char *buf, size_t size,
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_flush called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	if (writeFuncToLog("caching_flush") != SUCCESS)
-	{
-		return -errno;
-	}
-
-	return 0;
+	return checkSysCallFS(writeFuncToLog("caching_flush"));
 }
 
 /** Release an open file
@@ -375,8 +368,7 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_release called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-	if (writeFuncToLog("caching_release") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_release") != SUCCESS) {
 		return -errno;
 	}
 
@@ -399,7 +391,7 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 	{
 		return -errno;
 	}
-	DIR *dp;
+	DIR* dp;
 	int retstat = 0;
 
 	string fullPath = getFullPath(string(path));
@@ -407,8 +399,9 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 	// since opendir returns a pointer, takes some custom handling of
 	// return status.
 	dp = opendir(fullPath.c_str());
-	if (dp == NULL)
+	if (dp == NULL) {
 		retstat = -errno;
+	}
 
 	fi->fh = (intptr_t) dp;
 
@@ -434,12 +427,10 @@ int caching_readdir(const char *path, void *buf,
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! readdir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 
-	if (writeFuncToLog( "caching_readdir") != SUCCESS)
-	{
+	if (writeFuncToLog( "caching_readdir") != SUCCESS) {
 		return -errno;
 	}
 
-	int retstat = 0;
 	DIR *dp;
 	struct dirent *de;
 
@@ -466,7 +457,7 @@ int caching_readdir(const char *path, void *buf,
 	} while ((de = readdir(dp)) != NULL);
 
 
-	return retstat;
+	return SUCCESS;
 }
 
 /** Release directory
@@ -523,7 +514,7 @@ void *caching_init(struct fuse_conn_info *conn)
 
 	writeFuncToLog("caching_init");
 
-	return Caching_DATA;
+	return Caching_DATA;		// TODO what is this line?
 }
 
 
@@ -540,8 +531,7 @@ If a failure occurs in this function, do nothing
 void caching_destroy(void *userdata)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
-
-
+	// todo delete cache and fields
 	writeFuncToLog("caching_destroy");
 }
 
@@ -562,6 +552,7 @@ void caching_destroy(void *userdata)
 int caching_ioctl (const char *, int cmd, void *arg,
 				   struct fuse_file_info *, unsigned int flags, void *data)
 {
+	// todo implement
 	return 0;
 }
 

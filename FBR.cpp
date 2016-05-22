@@ -151,7 +151,7 @@ void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
     {
         for (size_t i = lowerIdx; i <= upperIdx; ++i)
         {
-            if(blocksMap[path].find(i) == blocksMap[path].end())
+            if(blocksMap->at(path)->find(i) == blocksMap->at(path)->end())
             {
                 cacheMissList.push_back(i);
             }

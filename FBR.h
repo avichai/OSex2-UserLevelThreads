@@ -60,7 +60,7 @@ public:
 class Cache {
 private:
     BlkList* blocksList;
-    unordered_map<string, unordered_set<int>*>* blocksMap;
+    unordered_map<string, unordered_set<size_t>*>* blocksMap;
     size_t blkSize;
     int nOldBlks;
     int nNewBlks;
@@ -74,8 +74,7 @@ public:
 
     virtual ~Cache();
 
-    int readData(char *buf, size_t size,
-                   off_t offset, int fd, string path);
+    int readData(char *buf, size_t size, off_t offset, int fd, string path);
 };
 
 
