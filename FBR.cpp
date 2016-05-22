@@ -1,4 +1,6 @@
 #include <unistd.h>
+#include <cmath>
+#include <string.h>
 #include "FBR.h"
 
 #define SUCCESS 0
@@ -23,30 +25,60 @@ Cache::~Cache() {
     delete blockList;
 }
 
-/**
- * todo
- */
-//int Cache::readData(char *buf, size_t size, off_t offset, int fd) {
-//    // checks if the call is valid.
-//    off_t fileSize = lseek(fd, 0, SEEK_END);
-//    if (fileSize == LSEEK_FALILURE)
-//    {
-//        return -errno;
-//    }
 //    if (fileSize < offset || size < 0 || offset < 0)
 //    {
 //        return SUCCESS;     //todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
 //    }
+/**
+ * todo
+ * todo check if no need to call read
+ */
+int Cache::readData(char *buf, size_t size, off_t offset, int fd) {
+    // checks if the call is valid.
+    off_t fileSize = lseek(fd, 0, SEEK_END);
+    if (fileSize == LSEEK_FALILURE)
+    {
+        return -errno;
+    }
+
+    // read bytes from start to end
+    size_t start = (size_t) offset;
+    size_t end = min(start + size, (size_t) fileSize);
+
+    // the block indexes needed to perform the read task
+    size_t lowerIdx = start / blkSize;
+    size_t upperIdx = (size_t) ceil(end / blkSize);
+    list<Block*> cacheHitList, cacheMissList;
+    divideBlocks(fd, lowerIdx, upperIdx, cacheHitList, cacheMissList);
+    size_t diffIdx = upperIdx - lowerIdx;
+
+    // Retrieving the needed blocks to perform the read task
+    string dataArr[diffIdx];
+    for (Block* block : cacheHitList) {
+
+    }
+    for (Block* block : cacheMissList) {
+
+    }
+//    for (size_t blkIdx = lowerIdx; blkIdx < upperIdx; ++blkIdx) {
+//        if (isBlockInCache(fd, blkIdx)) {       // cache hit
 //
-//    off_t end = min(offset + size, fileSize);
-//    size_t lower = offset / this->blkSize;
+//        }
+//        else {                                  // cache miss
 //
-//
-//
-//
-//
-//    return 0;
-//}
+//        }
+//    }
+
+    // copying the requested data to the buffer
+    string data = "";
+    for (string blkData : dataArr) {
+        data += blkData;
+    }
+    data.substr(start % blkSize, end % blkSize);
+    strcpy(buf, data.c_str());
+
+    return 0;
+}
 
 /*
  * checks if the given block residents in the cache (in O(1)).
