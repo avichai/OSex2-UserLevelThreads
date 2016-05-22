@@ -26,15 +26,15 @@ using namespace std;
 
 
 // ------------------------------- struct --------------------------------------
-// Chaching FS data struct
+/*
+ * Chaching FS data structure.
+ */
 struct CFSdata
 {
 	string rootDirPath;
 	ofstream logFile;
 	Cache* cache;
 };
-
-#define Caching_DATA ((struct CFSdata *) fuse_get_context()->private_data)		//todo change place
 
 // ------------------------------- globals -------------------------------------
 struct fuse_operations caching_oper;
@@ -45,17 +45,17 @@ static CFSdata cFSdata;
 
 
 // -------------------------- static functions ---------------------------------
-/*
- * Handles exceptions.
- */
-static void exceptionHandler(string funcName)
-{
-	cerr << "System Error: " << funcName << " failed." << endl;
-	exit(EXIT_FAILURE);
-}
+///*
+// * Handles exceptions during the main.
+// */
+//static void exceptionHandler(string funcName)
+//{
+//	cerr << "System Error: " << funcName << " failed." << endl;
+//	exit(EXIT_FAILURE);
+//}
 
 /*
- * Checking the result (of a function) and handles it if necessary.
+ * Checking the result (of a function)  during the main.
  */
 static void checkSysCallMain(int result, string funcName)
 {
@@ -64,6 +64,14 @@ static void checkSysCallMain(int result, string funcName)
 		cerr << "System Error: " << funcName << " failed." << endl;
 		exit(EXIT_FAILURE);
 	}
+}
+
+/*
+ * Returns zero if the result is zero, and -errno otherwise.
+ */
+static int checkSysCallFS(int result)
+{
+	return result == SUCCESS ? SUCCESS : -errno;
 }
 
 /*
@@ -134,61 +142,59 @@ static bool validArgs(int argc, char* argv[])
 		   validBlockArgs(argv);
 }
 
-/*
- * Opens the log file.
- */
-static void openLogFile()
-{                                                          // todo: check if open fails
-	cFSdata.logFile.open(cFSdata.rootDirPath + ".filesystem.log", ios::app);        // todo: add ios::app flag
-	if (cFSdata.logFile.fail())
-	{
-		exceptionHandler("open");
-	}
-}
-
-/*
- * Closes the log file.                                                       //todo should we close?
- */
-static void closeLogFile()
-{
-	cFSdata.logFile.close();
-}
+///*
+// * Opens the log file.
+// */
+//static void openLogFile()
+//{
+//	cFSdata.logFile.open(cFSdata.rootDirPath + ".filesystem.log", ios::app);        // todo: add ios::app flag
+//	if (cFSdata.logFile.fail())
+//	{
+//		return; 		// todo how to handle this exception (not like this!).
+//	}
+//}
+//
+///*
+// * Closes the log file.
+// */
+//static void closeLogFile()
+//{
+//	cFSdata.logFile.close();		// todo: check if close fails
+//}
 
 /*
  * Writes the given function to the log file.
  */
 static int writeFuncToLog(string funcName)
 {
-	openLogFile();
+	// openning the log file
+	cFSdata.logFile.open(cFSdata.rootDirPath + ".filesystem.log", ios::app);        // todo: add ios::app flag
+	if (cFSdata.logFile.fail())
+	{
+		return -errno; 		// todo how to handle this exception (not like this!).
+	}
+
 
 	time_t seconds = time(NULL);
-	cFSdata.logFile << seconds << " " << funcName << endl;
 	if (seconds == (time_t) TIME_FAILURE)
 	{
 		return -errno;
 	}
-	closeLogFile();
+	cFSdata.logFile << seconds << " " << funcName << endl;
+
+	// closing the log file
+	cFSdata.logFile.close();		// todo: check if close fails
 
 	return SUCCESS;
 }
 
-/*
- * Returns zero if the result is zero, and -errno otherwise.
- */
-static int checkSysCallFS(int result)
-{
-	return result == SUCCESS ? SUCCESS : -errno;
-}
 
 /*
- * Return the full path of the given path.
+ * Return the full path of the given relative path.
  */
 static string getFullPath(string path)
 {
-//	string fp  = cFSdata.rootDirPath  +  path; // todo check double // slash!!!!
-//	cout << "p: " << path << "\nfp: " << fp << endl;
-
-	return cFSdata.rootDirPath  +  path; // todo check double // slash!!!!;
+	return cFSdata.rootDirPath  +  path;
 }
 
 
@@ -206,7 +212,6 @@ int caching_getattr(const char *path, struct stat *statbuf)
 
 	if (writeFuncToLog("caching_getattr") != SUCCESS)
 	{
-		cerr << " ret errno" << endl;
 		return -errno;
 	}
 

@@ -4,21 +4,28 @@
 #define SUCCESS 0
 #define LSEEK_FALILURE -1
 
+/**
+ * Cache constructor.
+ */
 Cache::Cache(size_t nOldBlk, int blkSize, size_t nNewBlk, size_t cacheSize) :
         nOldBlk(nOldBlk), blkSize(blkSize), nNewBlk(nNewBlk),
         cacheSize(cacheSize) {
     blockList = new list();
 }
 
+/**
+ * Cache destructor.
+ */
 Cache::~Cache() {
-    while (!blockList->empty()) {
-        Block* blk = blockList->front();
-        blockList->pop_front();
-        delete blk;
+    for (Block* block : *blockList) {
+        delete block;
     }
     delete blockList;
 }
 
+/**
+ * todo
+ */
 int Cache::readData(char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi) {
     int fd = fi->fh;
