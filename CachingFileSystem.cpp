@@ -23,7 +23,7 @@ using namespace std;
 #define F_NEW_INDEX 5
 #define VALID_N_ARGS 6
 #define DECIMAL 10
-
+#define WORKING_DIR "/tmp"
 
 
 
@@ -50,14 +50,14 @@ static CFSdata cFSdata;
 
 
 // -------------------------- static functions ---------------------------------
-///*
-// * Handles exceptions during the main.
-// */
-//static void exceptionHandler(string funcName)
-//{
-//	cerr << "System Error: " << funcName << " failed." << endl;
-//	exit(EXIT_FAILURE);
-//}
+/*
+ * Handles exceptions during the main.
+ */
+static void exceptionHandlerMain(string funcName)
+{
+	cerr << "System Error: " << funcName << " failed." << endl;
+	exit(EXIT_FAILURE);
+}
 
 /*
  * Checking the result (of a function)  during the main.
@@ -66,8 +66,7 @@ static void checkSysCallMain(int result, string funcName)
 {
 	if (result != SUCCESS)
 	{
-		cerr << "System Error: " << funcName << " failed." << endl;
-		exit(EXIT_FAILURE);
+		exceptionHandlerMain(funcName);
 	}
 }
 
@@ -101,71 +100,50 @@ static bool isDouble(char* str, double &percentage)
 }
 
 /*
- * Returns true iff the string represents an int, and assigns the int value to
- * the given reference.
+ * Returns true iff the string represents a positive int, and assigns the int
+ * value to the given reference.
  */
-static bool isInt(char* str, int &percentage)
+static bool isPosInt(char* str, int &cacheSize)
 {
 	char* end  = 0;
-	percentage = strtol(str, &end, DECIMAL);
-	return (*end == '\0') && (end != str);
+	cacheSize = strtol(str, &end, DECIMAL);
+	return (*end == '\0') && (end != str) && cacheSize > 0;
 }
 
 /*
- * Validates the fOld and fNew args.
+ * Validates the fOld and fNew args and assigns old/new number of blocks.
  */
-static bool validPercentage(double percentage, int nBlocks)
+static bool validPercentage(double percentage, int cacheSize, int &nBlks)
 {
-	return percentage > 0 && percentage < 1 &&
-		   ((int) (percentage * nBlocks)) > 0;
+	nBlks = (int) (percentage * cacheSize);
+	return (percentage > 0) && (percentage < 1) && (nBlks > 0);
 }
 
 /*
  * Validates the block args.
  */
-static bool validBlockArgs(char* argv[])
+static bool validBlockArgs(char* argv[], int &nOldblks, int &nNewBlks, int &cacheSize)
 {
-	int nBlocks;
+//	int nBlocks;
 	double fOld, fNew;
-	return isInt(argv[N_BLOCKS_INDEX], nBlocks) &&
+	return isPosInt(argv[N_BLOCKS_INDEX], cacheSize) &&
 		   isDouble(argv[F_OLD_INDEX], fOld) &&
 		   isDouble(argv[F_NEW_INDEX], fNew) &&
-		   nBlocks > 0 &&
-		   validPercentage(fOld, nBlocks) &&
-		   validPercentage(fNew, nBlocks) &&
+		   validPercentage(fOld, cacheSize, nOldblks) &&
+		   validPercentage(fNew, cacheSize, nNewBlks) &&
 		   fOld + fNew <= 1;
 }
 
 /*
  * Validates the program's arguments.
  */
-static bool validArgs(int argc, char* argv[])
+static bool validArgs(int argc, char* argv[], int &nOldblks, int &nNewBlks, int &cacheSize)
 {
 	return argc == VALID_N_ARGS &&
 		   validDir(argv[ROOT_DIR_INDEX]) &&
 		   validDir(argv[MOUNT_DIR_INDEX]) &&
-		   validBlockArgs(argv);
+		   validBlockArgs(argv, nOldblks, nNewBlks, cacheSize);
 }
-
-///*
-// * Opens the log file.
-// */
-//static void openLogFile()
-//{
-//	cFSdata.logFile.open(cFSdata.rootDirPath + ".filesystem.log", ios::app);        // todo: add ios::app flag
-//	if (cFSdata.logFile.fail())
-//	{
-//		return; 		// todo how to handle this exception (not like this!).
-//	}
-//}
-//
-///*
-// * Closes the log file.
-// */
-//static void closeLogFile()
-//{
-//	cFSdata.logFile.close();		// todo: check if close fails
-//}
 
 /*
  * Writes the given function to the log file.
@@ -192,7 +170,6 @@ static int writeFuncToLog(string funcName)
 
 	return SUCCESS;
 }
-
 
 /*
  * Return the full path of the given relative path.
@@ -509,7 +486,9 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 	return checkSysCallFS(closedir((DIR *) (uintptr_t) fi->fh));
 }
 
-/** Rename a file */
+/**
+ * Rename a file
+ * */
 int caching_rename(const char *path, const char *newpath)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_rename called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
@@ -562,6 +541,7 @@ If a failure occurs in this function, do nothing
 void caching_destroy(void *userdata)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
+
 
 	writeFuncToLog("caching_destroy");
 }
@@ -635,8 +615,9 @@ void init_caching_oper()
 //basic main. You need to complete it.
 int main(int argc, char* argv[])
 {
-	// validate args
-	if (!validArgs(argc, argv))
+	// validate and assigns args
+	int nOldBlks, nNewBlks, cacheSize;
+	if (!validArgs(argc, argv, nOldBlks, nNewBlks, cacheSize))
 	{
 		cout << "Usage: CachingFileSystem rootdir mountdir numberOfBlocks "
 				"fOld fNew" << endl;
@@ -645,7 +626,14 @@ int main(int argc, char* argv[])
 
 	// init the CFS data
 	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]);
-	cFSdata.cache = new Cache(1,2,3,4);											//todo create it!!!
+	struct stat fi;
+	checkSysCallMain(stat(WORKING_DIR, &fi), "stat");
+	int blkSize = (int) fi.st_blksize;
+	try {
+		cFSdata.cache = new Cache(blkSize, nOldBlks, nNewBlks, cacheSize);
+	} catch (bad_alloc) {
+		exceptionHandlerMain("new");
+	}
 
 	init_caching_oper();
 	argv[1] = argv[2];
