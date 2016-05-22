@@ -8,7 +8,8 @@
 
 
 using namespace std;
-
+class Block;
+class Cache;
 
 typedef list<Block*> BlkList;
 typedef list<size_t> IdxList;
