@@ -60,14 +60,6 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd) {
     for (Block* block : cacheMissList) {
 
     }
-//    for (size_t blkIdx = lowerIdx; blkIdx < upperIdx; ++blkIdx) {
-//        if (isBlockInCache(fd, blkIdx)) {       // cache hit
-//
-//        }
-//        else {                                  // cache miss
-//
-//        }
-//    }
 
     // copying the requested data to the buffer
     string data = "";
