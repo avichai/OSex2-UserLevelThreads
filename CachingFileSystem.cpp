@@ -25,6 +25,9 @@ using namespace std;
 #define DECIMAL 10
 
 
+
+
+
 // ------------------------------- struct --------------------------------------
 /*
  * Chaching FS data structure.
@@ -42,6 +45,8 @@ static CFSdata cFSdata;
 
 
 
+//TODO delete later (realize what doing)
+#define Caching_DATA ((struct CFSdata*) fuse_get_context()->private_data)
 
 
 // -------------------------- static functions ---------------------------------
@@ -640,7 +645,7 @@ int main(int argc, char* argv[])
 
 	// init the CFS data
 	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]);
-	cFSdata.cache = new Cache(1,2,3);											//todo create it!!!
+	cFSdata.cache = new Cache(1,2,3,4);											//todo create it!!!
 
 	init_caching_oper();
 	argv[1] = argv[2];
