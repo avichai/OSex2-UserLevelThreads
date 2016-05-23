@@ -338,7 +338,6 @@ int caching_open(const char *path, struct fuse_file_info *fi)
  */
 int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
-
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
@@ -347,9 +346,9 @@ int caching_read(const char *path, char *buf, size_t size,
 	if (writeFuncToLog("caching_read") != SUCCESS) {
 		return -errno;
 	}
-//	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);
+//	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
 
-//	cerr << "ret " << cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path) << endl;
+	cerr << "ret " << cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path) << endl;
 	cerr << strlen(buf)  << endl;//todo
 	string a = "1234";
 	strcpy(buf, a.c_str());
@@ -538,6 +537,8 @@ int caching_rename(const char *path, const char *newpath)
 	}
 	string fullPath = getFullPath(string(path));
 	string fullNewPath = getFullPath(string(newpath));
+
+	cFSdata.cache->rename(fullPath, fullNewPath);
 
 	return checkSysCallFS(rename(fullPath.c_str(), fullNewPath.c_str()));
 }

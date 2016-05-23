@@ -199,3 +199,8 @@ void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
     }
     assert((cacheHitList.size()+cacheMissList.size()) == size);                 //todo remove assert
 }
+
+void Cache::rename(std::string fullPath, std::string fullNewPath) {
+
+
+}
