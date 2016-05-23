@@ -3,6 +3,7 @@
 #include <string.h>
 #include "FBR.h"
 #include <assert.h>
+#include <malloc.h>
 
 
 using namespace std;
@@ -32,6 +33,7 @@ Cache::Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsig
         blkSize(blkSize), nOldBlks(nOldBlks), nNewBlks(nNewBlks),
         cacheSize(cacheSize) {
     blocksList = new list<Block*>();
+    blocksMap = new unordered_map<string, unordered_set<size_t>*>();
 }
 
 /**
@@ -41,7 +43,16 @@ Cache::~Cache() {
     for (Block* block : *blocksList) {
         delete block;
     }
+    blocksList->clear();
     delete blocksList;
+
+    for (pair<string,unordered_set<size_t>*> curPair : *blocksMap) {
+        unordered_set<size_t>* set = curPair.second;
+        set->clear();
+        delete set;
+    }
+    blocksMap->clear();
+    delete blocksMap;
 }
 
 /**
@@ -52,8 +63,7 @@ Cache::~Cache() {
 int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     // checks if the call is valid.
     off_t fileSize = lseek(fd, 0, SEEK_END);
-    if (fileSize == LSEEK_FALILURE)
-    {
+    if (fileSize == LSEEK_FALILURE) {
         return -errno;
     }
 
@@ -63,15 +73,17 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
 
     // the block indexes needed to perform the read task
     size_t lowerIdx = start / blkSize;
-    size_t upperIdx = (size_t) ceil(end / blkSize);
+    size_t upperIdx = (size_t) ceil(end / blkSize) + 1; // +1 to adjust upper bound
     size_t diffIdx = upperIdx - lowerIdx;
 
     IdxList cacheHitList, cacheMissList;
     divideBlocks(path, lowerIdx, upperIdx, cacheHitList, cacheMissList);
 
     string dataArr[diffIdx];
+    bool isPathInMap = false;
     // cache hits
     if (!cacheHitList.empty()) {
+        isPathInMap = true;
         unsigned int blkPosition = 0;     // the block's position in the blocks list.
         for (Block* block : *blocksList) {
             ++blkPosition;
@@ -85,23 +97,36 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
             }
         }
     }
+
+    // create set for path
+    if (!isPathInMap) {
+        try {
+            blocksMap->insert(make_pair(path, new unordered_set<size_t>()));
+        } catch (bad_alloc) {
+            return -errno;
+        }
+    }
     // cache misses
     for (size_t index : cacheMissList) {
         if (blocksList->size() == cacheSize) {
             removeBlockBFR();
         }
-
-        char buffer[blkSize];
-        if (pread(fd, buffer, blkSize, start) < SUCCESS) { // todo set offset
+        char* buffer = (char*) memalign(blkSize, blkSize);
+        if (buffer == NULL) {
+            return -errno;
+        }
+        if (pread(fd, buffer, blkSize, index * blkSize) < SUCCESS) {
             return -errno;
         }
         string bufferStr = buffer;
+        free(buffer);
         Block* block;
         try {
             block = new Block(path, index, bufferStr);
         } catch(bad_alloc) {
             return -errno;
         }
+        blocksMap->at(path)->insert(index);
         dataArr[index - lowerIdx] = bufferStr;
         blocksList->push_front(block);
     }
@@ -112,7 +137,7 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
         data += blkData;
     }
     data.substr(start % blkSize, end % blkSize);
-    strcpy(buf, data.c_str());      // todo \0 needed to be inserted manually?
+    strcpy(buf, data.c_str());
 
     return 0;
 }
@@ -125,42 +150,49 @@ void Cache::removeBlockBFR() {
     Block* blkToRemove = (*it);
     for (unsigned int i = 0; i < nOldBlks; ++i)
     {
-        if ((*it)->getRefCounter() < blkToRemove->getRefCounter())
-        {
+        if ((*it)->getRefCounter() < blkToRemove->getRefCounter()) {
             blkToRemove = (*it);
         }
         --it;
     }
+    size_t indexToRem = blkToRemove->getIndex();
+    string pathToRem = blkToRemove->getPath();
+
     blocksList->remove(blkToRemove);
     delete blkToRemove;
+
+    unordered_set<size_t>* set = blocksMap->at(pathToRem);
+    set->erase(indexToRem);
+    if(set->empty()) {
+        blocksMap->erase(pathToRem);
+        delete set;
+    }
+
+
+
+
 
 }
 
 void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
                          IdxList &cacheHitList, IdxList &cacheMissList)
 {
-    size_t size = upperIdx - lowerIdx + 1;
+    size_t size = upperIdx - lowerIdx;
 
     //no fd in table;
-    if (blocksMap->find(path) == blocksMap->end())
-    {
-        for (size_t i = lowerIdx; i <= upperIdx; ++i)
-        {
+    if (blocksMap->find(path) == blocksMap->end()) {
+        for (size_t i = lowerIdx; i < upperIdx; ++i) {
             cacheMissList.push_back(i);
         }
         return;
     }
     //fd found.
-    else
-    {
-        for (size_t i = lowerIdx; i <= upperIdx; ++i)
-        {
-            if(blocksMap->at(path)->find(i) == blocksMap->at(path)->end())
-            {
+    else {
+        for (size_t i = lowerIdx; i < upperIdx; ++i) {
+            if(blocksMap->at(path)->find(i) == blocksMap->at(path)->end()) {
                 cacheMissList.push_back(i);
             }
-            else
-            {
+            else {
                 cacheMissList.push_back(i);
             }
         }

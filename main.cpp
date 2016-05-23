@@ -3,6 +3,10 @@
 using namespace std;
 
 int main() {
-    cout << "Hello, World!" << endl;
+    int fd = open("/tmp/f1", O_RDONLY | O_DIRECT | O_SYNC);
+
+
+
+
     return 0;
 }

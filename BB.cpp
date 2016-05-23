@@ -732,7 +732,6 @@ int bb_flush(const char *path, struct fuse_file_info *fi)
     log_msg("\nbb_flush(path=\"%s\", fi=0x%08x)\n", path, fi);
     // no need to get fpath on this one, since I work from fi->fh not the path
     log_fi(fi);
-
     return 0;
 }
 

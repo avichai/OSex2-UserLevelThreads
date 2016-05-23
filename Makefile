@@ -1,9 +1,11 @@
 CC = g++
-CFLAGS = -Wall -std=c++11
+CFLAGS = -Wall -std=c++11 -D_FILE_OFFSET_BITS=64
 EXTRA_FILES = Makefile README
 
 
 all: CachingFileSystemApp
+	
+
 
 CachingFileSystemApp : CachingFileSystem.cpp FBR.h FBR.cpp
 #	${CC} ${CFLAGS} CashTemp.cpp `pkg-config fuse --cflags --libs` -o caching
@@ -34,7 +36,9 @@ dirs:
 	touch /tmp/root/d1/f2
 	echo dfjas adksjgdkjasg ldfkja klajgl kjasg > /tmp/root/f1
 
-	
+py:
+	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); buf = ""; os.read('/tmp/mount/f1',buf,10,0,NULL) ;os.close(fd)"
+	#fcntl.ioctl(fd, 0);
 	
 	
 	
