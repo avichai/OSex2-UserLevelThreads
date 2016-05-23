@@ -146,8 +146,6 @@ static bool validBlockArgs(char* argv[], unsigned int &nOldblks, unsigned int &n
 		   validPercentage(fOld, cacheSize, nOldblks) &&
 		   validPercentage(fNew, cacheSize, nNewBlks) &&
 		   fOld + fNew <= 1;
-
-
 }
 
 
@@ -170,15 +168,13 @@ static int writeFuncToLog(string funcName)
 {
 	// openning the log file
 	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);        // todo: add ios::app flag
-	if (cFSdata.logFile.fail())
-	{
+	if (cFSdata.logFile.fail()) {
 		return -errno; 		// todo how to handle this exception (not like this!).
 	}
 
 
 	time_t seconds = time(NULL);
-	if (seconds == (time_t) TIME_FAILURE)
-	{
+	if (seconds == (time_t) TIME_FAILURE) {
 		return -errno;
 	}
 	cFSdata.logFile << seconds << " " << funcName << endl;
@@ -247,8 +243,7 @@ int caching_fgetattr(const char *path, struct stat *statbuf,
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_fgetattr") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_fgetattr") != SUCCESS) {
 		return -errno;
 	}
 
@@ -272,8 +267,7 @@ int caching_access(const char *path, int mask)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_access") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_access") != SUCCESS) {
 		return -errno;
 	}
 
@@ -300,8 +294,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_open") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_open") != SUCCESS) {
 		return -errno;
 	}
 
@@ -351,8 +344,7 @@ int caching_read(const char *path, char *buf, size_t size,
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_read") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_read") != SUCCESS) {
 		return -errno;
 	}
 //	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);
@@ -438,8 +430,7 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_opendir") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_opendir") != SUCCESS) {
 		return -errno;
 	}
 	DIR* dp;
@@ -526,8 +517,7 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_releasedir") != SUCCESS)
-	{
+	if (writeFuncToLog("caching_releasedir") != SUCCESS) {
 		return -errno;
 	}
 
