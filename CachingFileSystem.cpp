@@ -307,14 +307,13 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	if ((fi->flags & READ_MASK) != O_RDONLY) {
 		return -EACCES;		// todo check ret val
 	}
-	fi->direct_io = 1;
+//	fi->direct_io = 1;
 	fd = open(fullPath.c_str(), O_RDONLY | O_DIRECT | O_SYNC);
 	if (fd < SUCCESS) {
 		return -errno;
 	}
 
 	fi->fh = fd;
-	// fi->direct_io = true;				todo maybe change this.
 
 	return SUCCESS;
 }
@@ -348,14 +347,13 @@ int caching_read(const char *path, char *buf, size_t size,
 	if (writeFuncToLog("caching_read") != SUCCESS) {
 		return -errno;
 	}
-//	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
+	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
+//	cerr << "ret " << cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path) << endl;
+//	cerr << strlen(buf)  << endl;//todo
+//	string a = "1234";
+//	strcpy(buf, a.c_str());
 
-	cerr << "ret " << cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path) << endl;
-	cerr << strlen(buf)  << endl;//todo
-	string a = "1234";
-	strcpy(buf, a.c_str());
-
-	return 0;
+	return (int)(strlen(buf));
 }
 
 /** Possibly flush cached data

@@ -4,7 +4,7 @@
 #include "FBR.h"
 #include <assert.h>
 #include <malloc.h>
-
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -136,10 +136,13 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     for (string blkData : dataArr) {
         data += blkData;
     }
-    data.substr(start % blkSize, end % blkSize);
+//    data.substr(start % blkSize, (end % blkSize)-1);
+//    data.substr(0, 5);
+//    cerr << "data size: " << data.size() << " start % blkSize: " << start % blkSize
+//            << " end % blkSize: " <<  end % blkSize << endl;
     strcpy(buf, data.c_str());
 
-    return 0;
+    return (int)strlen(buf);
 }
 
 /*
@@ -197,10 +200,36 @@ void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
             }
         }
     }
+
     assert((cacheHitList.size()+cacheMissList.size()) == size);                 //todo remove assert
 }
 
-void Cache::rename(std::string fullPath, std::string fullNewPath) {
+void Cache::rename(string fullPath, string fullNewPath) {
+    for (auto it = blocksList->begin(); it != blocksList->end(); ++it) {
+        string oldPath = (*it)->getPath();
+        size_t foundPath = oldPath.find(fullPath);
+
+        if (foundPath != string::npos) {
+            string newPath = oldPath.replace(oldPath.find(fullPath),
+                                             fullPath.length(), fullNewPath);
+            (*it)->setPath(newPath);
+        }
+    }
+
+    for (auto it = blocksMap->begin(); it != blocksMap->end();) {
+        string oldPath = (*it).first;
+        if (oldPath.find(fullPath) != string::npos) {
+            string newPath = oldPath.replace(oldPath.find(fullPath),
+                                             fullPath.length(), fullNewPath);
+            unordered_set<size_t>* set = (*it).second;
+            it = blocksMap->erase(it);
+
+            blocksMap->insert(make_pair(newPath, set));
+        }
+        else {
+            ++it;
+        }
+    }
 
 
 }
