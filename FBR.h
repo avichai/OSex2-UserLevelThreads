@@ -75,6 +75,7 @@ public:
     virtual ~Cache();
 
     int readData(char *buf, size_t size, off_t offset, int fd, std::string path);
+    void rename(std::string fullPath, std::string fullNewPath);
 };
 
 
