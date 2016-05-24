@@ -205,6 +205,10 @@ void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
 }
 
 void Cache::rename(string fullPath, string fullNewPath) {
+
+    //todo check if it is a file and break
+
+
     for (auto it = blocksList->begin(); it != blocksList->end(); ++it) {
         string oldPath = (*it)->getPath();
         size_t foundPath = oldPath.find(fullPath);
