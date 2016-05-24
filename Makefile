@@ -37,7 +37,7 @@ dirs:
 	echo dfjas adksjgdkjasg ldfkja klajgl kjasg > /tmp/root/f1
 
 py:
-	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); buf = ""; os.read('/tmp/mount/f1',buf,10,0,NULL) ;os.close(fd)"
+	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); os.ioctl(fd,0); os.close(fd)"
 	#fcntl.ioctl(fd, 0);
 	
 	

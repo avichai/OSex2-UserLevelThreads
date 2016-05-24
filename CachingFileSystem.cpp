@@ -305,7 +305,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	// else it's -errno.  I'm making sure that in that case the saved
 	// file descriptor is exactly -1.
 	if ((fi->flags & READ_MASK) != O_RDONLY) {
-		return -EACCES;		// todo check ret val
+		return -EACCES;
 	}
 	fd = open(fullPath.c_str(), O_RDONLY | O_DIRECT | O_SYNC);
 	if (fd < SUCCESS) {
@@ -313,7 +313,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	}
 
 	fi->fh = fd;
-	// fi->direct_io = true;				todo maybe change this.
+	 fi->direct_io = 1;
 
 	return SUCCESS;
 }
@@ -336,8 +336,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 
  * Changed in version 2.2
  */
-int caching_read(const char *path, char *buf, size_t size,
-				 off_t offset, struct fuse_file_info *fi)
+int caching_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
@@ -346,13 +345,15 @@ int caching_read(const char *path, char *buf, size_t size,
 	if (writeFuncToLog("caching_read") != SUCCESS) {
 		return -errno;
 	}
-//	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
 
-	cerr << "ret " << cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path) << endl;
-	cerr << strlen(buf)  << endl;//todo
-	string a = "1234";
-	strcpy(buf, a.c_str());
+	cerr << "read params: " << "path: " << path << " size: " << size  << " offset: " << offset << endl; //todo
 
+	static bool b = true;
+	if (b) {
+		b = false;
+		return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
+	}
+	b = true;
 	return 0;
 }
 
@@ -602,7 +603,12 @@ void caching_destroy(void *userdata)
 int caching_ioctl (const char *, int cmd, void *arg,
 				   struct fuse_file_info *, unsigned int flags, void *data)
 {
-	// todo implement
+	cerr << "!!!!!!!!!!!!!!!!!!!! caching_ioctl called !!!!!!!!!!!!!!!!!!!!!" << endl;
+	string buf = "caching_ioctl\n";
+	buf += cFSdata.cache->getCacheDatat();
+	if (writeFuncToLog(buf) != SUCCESS) {
+		return -errno;
+	}
 	return 0;
 }
 

@@ -61,7 +61,7 @@ Cache::~Cache() {
  * todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
  */
 int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
-    // checks if the call is valid.
+    // checks if the call is valid.     // todo maybe checked autom by pread
     off_t fileSize = lseek(fd, 0, SEEK_END);
     if (fileSize == LSEEK_FALILURE) {
         return -errno;
@@ -70,14 +70,30 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     // read bytes from start to end
     size_t start = (size_t) offset;
     size_t end = min(start + size, (size_t) fileSize); // todo maybe + 1
+    cerr << "start: " << start << endl; //todo
+    cerr << "end: " << end << endl; //todo
 
     // the block indexes needed to perform the read task
     size_t lowerIdx = start / blkSize;
     size_t upperIdx = (size_t) ceil(end / blkSize) + 1; // +1 to adjust upper bound
     size_t diffIdx = upperIdx - lowerIdx;
+    cerr << "lowerIdx: " << lowerIdx << endl; //todo
+    cerr << "upperIdx: " << upperIdx << endl; //todo
 
     IdxList cacheHitList, cacheMissList;
     divideBlocks(path, lowerIdx, upperIdx, cacheHitList, cacheMissList);
+
+    cerr << "hit List size: " << cacheHitList.size() << endl; //todo
+    for (size_t idx: cacheHitList) {
+        cerr << "  " << idx;
+    }
+    cerr << endl;
+    cerr << "miss List size: " << cacheMissList.size() << endl; //todo
+    for (size_t idx: cacheMissList) {
+        cerr << "  " << idx;
+    }
+    cerr << endl;
+
 
     string dataArr[diffIdx];
     bool isPathInMap = false;
@@ -100,6 +116,7 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
 
     // create set for path
     if (!isPathInMap) {
+        cerr << "insert new path: " << path << endl; //todo
         try {
             blocksMap->insert(make_pair(path, new unordered_set<size_t>()));
         } catch (bad_alloc) {
@@ -109,20 +126,23 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     // cache misses
     for (size_t index : cacheMissList) {
         if (blocksList->size() == cacheSize) {
+            cerr << "removing block" << endl; //todo
             removeBlockBFR();
         }
-        char* buffer = (char*) memalign(blkSize, blkSize);
+        char* buffer = (char*) aligned_alloc(blkSize, blkSize); //todo!!!!!!
         if (buffer == NULL) {
             return -errno;
         }
         if (pread(fd, buffer, blkSize, index * blkSize) < SUCCESS) {
             return -errno;
         }
+        cerr << "reads buffer: " << buffer << endl; // todo!!!!!!
         string bufferStr = buffer;
         free(buffer);
         Block* block;
         try {
             block = new Block(path, index, bufferStr);
+            cerr << "new block - " << "path: " << path << " index: " << index << " buf: " << bufferStr <<endl; //todo
         } catch(bad_alloc) {
             return -errno;
         }
@@ -136,10 +156,9 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     for (string blkData : dataArr) {
         data += blkData;
     }
-    data.substr(start % blkSize, end % blkSize);
+    data.substr(start % blkSize, end % blkSize); //todo check if correct
     strcpy(buf, data.c_str());
-
-    return 0;
+    return (int) strlen(buf);
 }
 
 /*
@@ -202,5 +221,17 @@ void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
 
 void Cache::rename(std::string fullPath, std::string fullNewPath) {
 
+
+}
+
+std::string Cache::getCacheDatat() {
+    string buf = "";
+
+    for (Block* block : *blocksList) {
+        buf += block->getPath() + " " + to_string(block->getIndex()) + " " +
+                to_string(block->getRefCounter()) + "\n";
+    }
+
+    return buf;
 
 }
