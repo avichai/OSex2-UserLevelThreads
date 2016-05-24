@@ -347,17 +347,14 @@ int caching_read(const char *path, char *buf, size_t size,
 	if (writeFuncToLog("caching_read") != SUCCESS) {
 		return -errno;
 	}
-//	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
-
-	cerr << "read params: " << "path: " << path << " size: " << size  << " offset: " << offset << endl; //todo
-
-	static bool b = true;
-	if (b) {
-		b = false;
-		return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
+	struct stat statBuf;
+	if (lstat(getFullPath(path).c_str(), &statBuf) != SUCCESS) {
+		return -errno;
 	}
-	b = true;
-	return 0;
+
+	int n = cFSdata.cache->readData(buf, (size_t) offset, size, (size_t) statBuf.st_size, (int) fi->fh, path);
+	cerr << "readDataRet: " << n <<  " buff: " << buf << endl; //todo
+	return n;
 }
 
 /** Possibly flush cached data
@@ -608,7 +605,7 @@ int caching_ioctl (const char *, int cmd, void *arg,
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_ioctl called !!!!!!!!!!!!!!!!!!!!!" << endl;
 	string buf = "caching_ioctl\n";
-	buf += cFSdata.cache->getCacheDatat();
+	buf += cFSdata.cache->getCacheData();
 	if (writeFuncToLog(buf) != SUCCESS) {
 		return -errno;
 	}

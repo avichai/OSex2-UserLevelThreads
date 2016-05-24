@@ -66,21 +66,21 @@ private:
     BlkList* blocksList;
     std::unordered_map<std::string, std::unordered_set<size_t>*>* blocksMap;
     size_t blkSize;
-    unsigned int nOldBlks;       // todo maybe unsigned int or size_t
+    unsigned int nOldBlks;
     unsigned int nNewBlks;
     unsigned int cacheSize;
 
-    void divideBlocks(std::string path, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
+//    void divideBlocks(std::string path, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
     void removeBlockBFR();
-
+    std::string cacheHit(size_t blkIndex);
+    int cacheMiss(size_t blkIndex, bool pathInMap, std::string blkPath, int fd, std::string & data);
 public:
     Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsigned int cacheSize);
-
     virtual ~Cache();
 
-    int readData(char *buf, size_t size, off_t offset, int fd, std::string path);
+    int readData(char *buf, size_t start, size_t size, size_t fileSize, int fd, std::string path);
     void rename(std::string fullPath, std::string fullNewPath);
-    std::string getCacheDatat();
+    std::string getCacheData();
 };
 
 

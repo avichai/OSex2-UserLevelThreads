@@ -14,17 +14,17 @@ using namespace std;
 
 
 
-/*
- * Returns true iff the index is found in the list.
- */
-static bool inList(IdxList &l, size_t index) {
-    for (auto it = l.begin(); it != l.end(); ++it) {
-        if (*it == index) {
-            return true;
-        }
-    }
-    return false;
-}
+///*
+// * Returns true iff the index is found in the list.
+// */
+//static bool inList(IdxList &l, size_t index) {
+//    for (auto it = l.begin(); it != l.end(); ++it) {
+//        if (*it == index) {
+//            return true;
+//        }
+//    }
+//    return false;
+//}
 
 /**
  * Cache constructor.
@@ -60,43 +60,213 @@ Cache::~Cache() {
  * todo check if no need to call read
  * todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
  */
-int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
-    // checks if the call is valid.     // todo maybe checked autom by pread
-    off_t fileSize = lseek(fd, 0, SEEK_END);
-    if (fileSize == LSEEK_FALILURE) {
-        return -errno;
+int Cache::readData(char *buf, size_t start, size_t size, size_t fileSize, int fd, string path) {
+    size_t end = min(start + size, fileSize); // todo maybe + 1
+    if (start >= end) {
+        return 0;
     }
-
-    // read bytes from start to end
-    size_t start = (size_t) offset;
-    size_t end = min(start + size, (size_t) fileSize); // todo maybe + 1
-    cerr << "start: " << start << endl; //todo
-    cerr << "end: " << end << endl; //todo
+//    cerr << "start: " << start << endl; //todo
+//    cerr << "end: " << end << endl; //todo
 
     // the block indexes needed to perform the read task
     size_t lowerIdx = start / blkSize;
     size_t upperIdx = (size_t) ceil(end / blkSize) + 1; // +1 to adjust upper bound
-    size_t diffIdx = upperIdx - lowerIdx;
-    cerr << "lowerIdx: " << lowerIdx << endl; //todo
-    cerr << "upperIdx: " << upperIdx << endl; //todo
+//    cerr << "lowerIdx: " << lowerIdx << endl; //todo
+//    cerr << "upperIdx: " << upperIdx << endl; //todo
 
-    IdxList cacheHitList, cacheMissList;
-    divideBlocks(path, lowerIdx, upperIdx, cacheHitList, cacheMissList);
-
-    cerr << "hit List size: " << cacheHitList.size() << endl; //todo
-    for (size_t idx: cacheHitList) {
-        cerr << "  " << idx;
+    string data = "";
+    bool pathInMap = blocksMap->find(path) != blocksMap->end();
+    unordered_set<size_t>* set;
+    if (pathInMap) {
+        set = blocksMap->at(path);
     }
-    cerr << endl;
-    cerr << "miss List size: " << cacheMissList.size() << endl; //todo
-    for (size_t idx: cacheMissList) {
-        cerr << "  " << idx;
+    for (size_t index = lowerIdx; index < upperIdx; ++index) {
+        if (pathInMap && (set->find(index) != set->end())) {
+            data += cacheHit(index);
+        }
+        else {
+            if (cacheMiss(index, pathInMap, path, fd, data) < SUCCESS) {
+                return -errno;
+            }
+        }
     }
-    cerr << endl;
+
+    // copying the requested data to the buffer
+    data.substr(start % blkSize, end % blkSize); //todo check if correct
+    strcpy(buf, data.c_str());
+    return (int) strlen(buf);
+}
 
 
-    string dataArr[diffIdx];
-    bool isPathInMap = false;
+/*
+ *
+ */
+string Cache::cacheHit(size_t blkIndex) {
+    string blkData = "";
+    unsigned int blkPosition = 0;
+    Block *hitBlock;
+    for (Block *block : *blocksList) {
+        ++blkPosition;
+        if (block->getIndex() == blkIndex) {
+            hitBlock = block;
+            blocksList->remove(block);
+            break;
+        }
+    }
+    blkData = hitBlock->getData();
+    if (blkPosition > nNewBlks) {
+        hitBlock->incRefCounter();
+    }
+    blocksList->push_front(hitBlock);
+    return blkData;
+}
+
+/*
+ *
+ */
+int Cache::cacheMiss(size_t blkIndex, bool pathInMap, string blkPath, int fd, string & data) {
+    if (!pathInMap) {
+        try {
+            blocksMap->insert(make_pair(blkPath, new unordered_set<size_t>()));
+        } catch (bad_alloc) {
+            return -errno;
+        }
+    }
+    blocksMap->at(blkPath)->insert(blkIndex);
+
+    if (blocksList->size() == cacheSize) {
+        removeBlockBFR();
+    }
+
+    char* buffer = (char*) aligned_alloc(blkSize, blkSize); //todo!!!!!!
+    size_t bytesRead = 0;
+    int c = 0;
+    do {
+        ++c;
+        if (c == 20) {
+            cerr << "wrong" << endl;
+            break;
+        }
+        // todo how does this work if first pread didnt catch all blockf ?? (buffer would override).
+        ssize_t preadRet = pread(fd, buffer, blkSize, blkIndex * blkSize);
+        if (preadRet < SUCCESS) {
+            return -errno;
+        }
+        bytesRead += preadRet;
+    } while (bytesRead != 0 && bytesRead != blkSize);
+    string bufferStr = buffer;
+    free(buffer);
+    Block* block;
+    try {
+        block = new Block(blkPath, blkIndex, bufferStr);
+    } catch(bad_alloc) {
+        return -errno;
+    }
+    blocksMap->at(blkPath)->insert(blkIndex);
+    blocksList->push_front(block);
+    data += bufferStr;
+    return SUCCESS;
+}
+
+/*
+ * Chooses a victim block to evict from the cache applying the BFR algorithm.
+ */
+void Cache::removeBlockBFR() {
+    auto it = --(blocksList->end());
+    Block* blkToRemove = (*it);
+    for (unsigned int i = 0; i < nOldBlks; ++i)
+    {
+        if ((*it)->getRefCounter() < blkToRemove->getRefCounter()) {
+            blkToRemove = (*it);
+        }
+        --it;
+    }
+    size_t indexToRem = blkToRemove->getIndex();
+    string pathToRem = blkToRemove->getPath();
+
+    blocksList->remove(blkToRemove);
+    delete blkToRemove;
+
+    unordered_set<size_t>* set = blocksMap->at(pathToRem);
+    set->erase(indexToRem);
+    if(set->empty()) {
+        blocksMap->erase(pathToRem);
+        delete set;
+    }
+}
+
+
+void Cache::rename(string fullPath, string fullNewPath) {
+
+    //todo check if it is a file and break
+    for (auto it = blocksList->begin(); it != blocksList->end(); ++it) {
+        string oldPath = (*it)->getPath();
+        size_t foundPath = oldPath.find(fullPath);
+
+        if (foundPath != string::npos) {
+            string newPath = oldPath.replace(oldPath.find(fullPath),
+                                             fullPath.length(), fullNewPath);
+            (*it)->setPath(newPath);
+        }
+    }
+
+    for (auto it = blocksMap->begin(); it != blocksMap->end();) {
+        string oldPath = (*it).first;
+        if (oldPath.find(fullPath) != string::npos) {
+            string newPath = oldPath.replace(oldPath.find(fullPath),
+                                             fullPath.length(), fullNewPath);
+            unordered_set<size_t>* set = (*it).second;
+            it = blocksMap->erase(it);
+
+            blocksMap->insert(make_pair(newPath, set));
+        }
+        else {
+            ++it;
+        }
+    }
+}
+
+
+std::string Cache::getCacheData() {
+    string buf = "";
+
+    for (Block* block : *blocksList) {
+        buf += block->getPath() + " " + to_string(block->getIndex()) + " " +
+                to_string(block->getRefCounter()) + "\n";
+    }
+
+    return buf;
+}
+
+//void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
+//                         IdxList &cacheHitList, IdxList &cacheMissList)
+//{
+//    size_t size = upperIdx - lowerIdx;
+//
+//    //no fd in table;
+//    if (blocksMap->find(path) == blocksMap->end()) {
+//        for (size_t i = lowerIdx; i < upperIdx; ++i) {
+//            cacheMissList.push_back(i);
+//        }
+//        return;
+//    }
+//    //fd found.
+//    else {
+//        for (size_t i = lowerIdx; i < upperIdx; ++i) {
+//            if(blocksMap->at(path)->find(i) == blocksMap->at(path)->end()) {
+//                cacheMissList.push_back(i);
+//            }
+//            else {
+//                cacheMissList.push_back(i);
+//            }
+//        }
+//    }
+//
+//    assert((cacheHitList.size()+cacheMissList.size()) == size);                 //todo remove assert
+//}
+
+/*
+ *    bool isPathInMap = false;
     // cache hits
     if (!cacheHitList.empty()) {
         isPathInMap = true;
@@ -147,117 +317,4 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
         blocksList->push_front(block);
     }
 
-    // copying the requested data to the buffer
-    string data = "";
-    for (string blkData : dataArr) {
-        data += blkData;
-    }
-    data.substr(start % blkSize, end % blkSize); //todo check if correct
-    strcpy(buf, data.c_str());
-    return (int) strlen(buf);
-}
-
-/*
- * Chooses a victim block to evict from the cache applying the BFR algorithm.
  */
-void Cache::removeBlockBFR() {
-    auto it = --(blocksList->end());
-    Block* blkToRemove = (*it);
-    for (unsigned int i = 0; i < nOldBlks; ++i)
-    {
-        if ((*it)->getRefCounter() < blkToRemove->getRefCounter()) {
-            blkToRemove = (*it);
-        }
-        --it;
-    }
-    size_t indexToRem = blkToRemove->getIndex();
-    string pathToRem = blkToRemove->getPath();
-
-    blocksList->remove(blkToRemove);
-    delete blkToRemove;
-
-    unordered_set<size_t>* set = blocksMap->at(pathToRem);
-    set->erase(indexToRem);
-    if(set->empty()) {
-        blocksMap->erase(pathToRem);
-        delete set;
-    }
-
-
-
-
-
-}
-
-void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
-                         IdxList &cacheHitList, IdxList &cacheMissList)
-{
-    size_t size = upperIdx - lowerIdx;
-
-    //no fd in table;
-    if (blocksMap->find(path) == blocksMap->end()) {
-        for (size_t i = lowerIdx; i < upperIdx; ++i) {
-            cacheMissList.push_back(i);
-        }
-        return;
-    }
-    //fd found.
-    else {
-        for (size_t i = lowerIdx; i < upperIdx; ++i) {
-            if(blocksMap->at(path)->find(i) == blocksMap->at(path)->end()) {
-                cacheMissList.push_back(i);
-            }
-            else {
-                cacheMissList.push_back(i);
-            }
-        }
-    }
-
-    assert((cacheHitList.size()+cacheMissList.size()) == size);                 //todo remove assert
-}
-
-void Cache::rename(string fullPath, string fullNewPath) {
-
-    //todo check if it is a file and break
-
-
-    for (auto it = blocksList->begin(); it != blocksList->end(); ++it) {
-        string oldPath = (*it)->getPath();
-        size_t foundPath = oldPath.find(fullPath);
-
-        if (foundPath != string::npos) {
-            string newPath = oldPath.replace(oldPath.find(fullPath),
-                                             fullPath.length(), fullNewPath);
-            (*it)->setPath(newPath);
-        }
-    }
-
-    for (auto it = blocksMap->begin(); it != blocksMap->end();) {
-        string oldPath = (*it).first;
-        if (oldPath.find(fullPath) != string::npos) {
-            string newPath = oldPath.replace(oldPath.find(fullPath),
-                                             fullPath.length(), fullNewPath);
-            unordered_set<size_t>* set = (*it).second;
-            it = blocksMap->erase(it);
-
-            blocksMap->insert(make_pair(newPath, set));
-        }
-        else {
-            ++it;
-        }
-    }
-
-
-}
-
-std::string Cache::getCacheDatat() {
-    string buf = "";
-
-    for (Block* block : *blocksList) {
-        buf += block->getPath() + " " + to_string(block->getIndex()) + " " +
-                to_string(block->getRefCounter()) + "\n";
-    }
-
-    return buf;
-
-}
