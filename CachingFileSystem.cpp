@@ -307,6 +307,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	if ((fi->flags & READ_MASK) != O_RDONLY) {
 		return -EACCES;		// todo check ret val
 	}
+	fi->direct_io = 1;
 	fd = open(fullPath.c_str(), O_RDONLY | O_DIRECT | O_SYNC);
 	if (fd < SUCCESS) {
 		return -errno;
