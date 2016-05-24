@@ -336,7 +336,9 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 
  * Changed in version 2.2
  */
-int caching_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+int caching_read(const char *path, char *buf, size_t size,
+				 off_t offset, struct fuse_file_info *fi)
+
 {
 	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
@@ -345,6 +347,7 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset, struct 
 	if (writeFuncToLog("caching_read") != SUCCESS) {
 		return -errno;
 	}
+//	return cFSdata.cache->readData(buf, size, offset, (int) fi->fh, path);  //todo!!!!!!
 
 	cerr << "read params: " << "path: " << path << " size: " << size  << " offset: " << offset << endl; //todo
 

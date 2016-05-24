@@ -4,7 +4,7 @@
 #include "FBR.h"
 #include <assert.h>
 #include <malloc.h>
-
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -116,7 +116,6 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
 
     // create set for path
     if (!isPathInMap) {
-        cerr << "insert new path: " << path << endl; //todo
         try {
             blocksMap->insert(make_pair(path, new unordered_set<size_t>()));
         } catch (bad_alloc) {
@@ -126,7 +125,6 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
     // cache misses
     for (size_t index : cacheMissList) {
         if (blocksList->size() == cacheSize) {
-            cerr << "removing block" << endl; //todo
             removeBlockBFR();
         }
         char* buffer = (char*) aligned_alloc(blkSize, blkSize); //todo!!!!!!
@@ -136,13 +134,11 @@ int Cache::readData(char *buf, size_t size, off_t offset, int fd, string path) {
         if (pread(fd, buffer, blkSize, index * blkSize) < SUCCESS) {
             return -errno;
         }
-        cerr << "reads buffer: " << buffer << endl; // todo!!!!!!
         string bufferStr = buffer;
         free(buffer);
         Block* block;
         try {
             block = new Block(path, index, bufferStr);
-            cerr << "new block - " << "path: " << path << " index: " << index << " buf: " << bufferStr <<endl; //todo
         } catch(bad_alloc) {
             return -errno;
         }
@@ -216,10 +212,40 @@ void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
             }
         }
     }
+
     assert((cacheHitList.size()+cacheMissList.size()) == size);                 //todo remove assert
 }
 
-void Cache::rename(std::string fullPath, std::string fullNewPath) {
+void Cache::rename(string fullPath, string fullNewPath) {
+
+    //todo check if it is a file and break
+
+
+    for (auto it = blocksList->begin(); it != blocksList->end(); ++it) {
+        string oldPath = (*it)->getPath();
+        size_t foundPath = oldPath.find(fullPath);
+
+        if (foundPath != string::npos) {
+            string newPath = oldPath.replace(oldPath.find(fullPath),
+                                             fullPath.length(), fullNewPath);
+            (*it)->setPath(newPath);
+        }
+    }
+
+    for (auto it = blocksMap->begin(); it != blocksMap->end();) {
+        string oldPath = (*it).first;
+        if (oldPath.find(fullPath) != string::npos) {
+            string newPath = oldPath.replace(oldPath.find(fullPath),
+                                             fullPath.length(), fullNewPath);
+            unordered_set<size_t>* set = (*it).second;
+            it = blocksMap->erase(it);
+
+            blocksMap->insert(make_pair(newPath, set));
+        }
+        else {
+            ++it;
+        }
+    }
 
 
 }

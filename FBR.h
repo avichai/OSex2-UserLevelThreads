@@ -28,6 +28,10 @@ private:
     std::string data;
 
 public:
+    void setPath(const std::string &path) {
+        Block::path = path;
+    }
+
     Block(std::string path, size_t index, const std::string &data) :
             path(path), index(index), refCounter(REF_COUNTER_INIT), data(data) {}
 
