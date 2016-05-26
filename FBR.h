@@ -25,15 +25,17 @@ private:
     std::string path;
     size_t index;
     int refCounter;
-    std::string data;
+    char* data;
 
 public:
     void setPath(const std::string &path) {
         Block::path = path;
     }
 
-    Block(std::string path, size_t index, const std::string &data) :
+    Block(std::string path, size_t index, char* data) :
             path(path), index(index), refCounter(REF_COUNTER_INIT), data(data) {}
+
+    virtual  ~Block();
 
     inline std::string getPath() const {
         return path;
@@ -47,7 +49,7 @@ public:
         return refCounter;
     }
 
-    inline const std::string &getData() const {
+    inline char* getData() const {
         return data;
     }
 
@@ -65,20 +67,22 @@ class Cache {
 private:
     BlkList* blocksList;
     std::unordered_map<std::string, std::unordered_set<size_t>*>* blocksMap;
+
+private:
     size_t blkSize;
     unsigned int nOldBlks;
     unsigned int nNewBlks;
     unsigned int cacheSize;
 
-//    void divideBlocks(std::string path, size_t lowerIdx, size_t upperIdx, IdxList &cacheHitList, IdxList &cacheMissList);
     void removeBlockBFR();
-    std::string cacheHit(size_t blkIndex);
-    int cacheMiss(size_t blkIndex, bool pathInMap, std::string blkPath, int fd, std::string & data);
+    int cacheHit(IdxList hitList, std::string path, size_t lowerIdx, char*  dataArr);
+    int cacheMiss(IdxList missList, int fd, std::string path, size_t lowerIdx, char* dataArr);
+
 public:
     Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsigned int cacheSize);
     virtual ~Cache();
 
-    int readData(char *buf, size_t start, size_t size, size_t fileSize, int fd, std::string path);
+    int readData(char *buf, size_t start, size_t end, int fd, std::string path);
     void rename(std::string fullPath, std::string fullNewPath);
     std::string getCacheData();
 };

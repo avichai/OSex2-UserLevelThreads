@@ -5,26 +5,63 @@
 #include <assert.h>
 #include <malloc.h>
 #include <sys/stat.h>
+#include <fstream>
 
 using namespace std;
 
 
 #define SUCCESS 0
-#define LSEEK_FALILURE -1
+
+#define LOG_NAME ".filesystem.log" //todo delete
+#define TIME_FAILURE -1 //todo delete
 
 
 
-///*
-// * Returns true iff the index is found in the list.
-// */
-//static bool inList(IdxList &l, size_t index) {
-//    for (auto it = l.begin(); it != l.end(); ++it) {
-//        if (*it == index) {
-//            return true;
-//        }
+//static int writeFuncToLog(string funcName)
+//{
+//    // openning the log file
+////	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);        // todo: add ios::app flag
+//    string t = "/tmp/";
+//    ofstream logFile;
+//    logFile.open(t +  LOG_NAME, ios::app);        // todo: add ios::app flag
+//    if (logFile.fail()) {
+//        return -errno; 		// todo how to handle this exception (not like this!).
 //    }
-//    return false;
+//
+//
+//    time_t seconds = time(NULL);
+//    if (seconds == (time_t) TIME_FAILURE) {
+//        return -errno;
+//    }
+//    logFile << seconds << " " << funcName << endl;
+//
+//    // closing the log file
+//    logFile.close();		// todo: check if close fails
+//
+//    return SUCCESS;
 //}
+
+
+
+
+/*
+ * Returns true iff the index is found in the list.
+ */
+static bool inList(IdxList &l, size_t index) {
+    for (auto it = l.begin(); it != l.end(); ++it) {
+        if (*it == index) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*
+ *
+ */
+Block::~Block() {
+    free(data);
+}
 
 /**
  * Cache constructor.
@@ -32,8 +69,9 @@ using namespace std;
 Cache::Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsigned int cacheSize) :
         blkSize(blkSize), nOldBlks(nOldBlks), nNewBlks(nNewBlks),
         cacheSize(cacheSize) {
-    blocksList = new list<Block*>();
-    blocksMap = new unordered_map<string, unordered_set<size_t>*>();
+    blocksList = new BlkList();
+    blocksMap = new unordered_map<string, unordered_set<size_t> *>();
+    // todo check new (how to handle if failed?)
 }
 
 /**
@@ -55,116 +93,127 @@ Cache::~Cache() {
     delete blocksMap;
 }
 
+
+
 /**
  * todo
  * todo check if no need to call read
  * todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
  */
-int Cache::readData(char *buf, size_t start, size_t size, size_t fileSize, int fd, string path) {
-    size_t end = min(start + size, fileSize); // todo maybe + 1
-    if (start >= end) {
-        return 0;
-    }
-//    cerr << "start: " << start << endl; //todo
-//    cerr << "end: " << end << endl; //todo
-
+int Cache::readData(char* buf, size_t start, size_t end, int fd, string path) {
     // the block indexes needed to perform the read task
     size_t lowerIdx = start / blkSize;
+    //todo check what happened when end = blkSize
     size_t upperIdx = (size_t) ceil(end / blkSize) + 1; // +1 to adjust upper bound
-//    cerr << "lowerIdx: " << lowerIdx << endl; //todo
-//    cerr << "upperIdx: " << upperIdx << endl; //todo
+    size_t diffIdx = upperIdx - lowerIdx;
 
-    string data = "";
+    // assigns hit and miss block lists
     bool pathInMap = blocksMap->find(path) != blocksMap->end();
+    IdxList hitList, missList;
     unordered_set<size_t>* set;
     if (pathInMap) {
         set = blocksMap->at(path);
     }
     for (size_t index = lowerIdx; index < upperIdx; ++index) {
         if (pathInMap && (set->find(index) != set->end())) {
-            data += cacheHit(index);
+            hitList.push_back(index);
         }
         else {
-            if (cacheMiss(index, pathInMap, path, fd, data) < SUCCESS) {
-                return -errno;
+            missList.push_back(index);
+        }
+    }
+
+    // blocks data
+    char* data = (char*) malloc(blkSize * diffIdx);
+    if (data == NULL) {
+        return -errno;
+    }
+
+    // cache hits
+    if (cacheHit(hitList, path, lowerIdx, data) != SUCCESS) {
+        return -errno;
+    }
+    // cache misses
+    if (cacheMiss(missList, fd, path, lowerIdx,data) != SUCCESS) {
+        return -errno;
+    }
+
+    size_t diff = end - start;
+    memcpy(buf, data + (start % blkSize), diff); // todo +1?
+    free(data);
+
+    return (int) diff;
+}
+
+
+/*
+ *
+ */
+int Cache::cacheHit(IdxList hitList, string path, size_t lowerIdx, char* dataArr) {
+    bool isPathInMap = false;
+    if (!hitList.empty()) {
+        isPathInMap = true;
+        unsigned int blkPosition = 0;     // the block's position in the blocks list.
+        Block* block;
+        for (auto it = blocksList->begin(); it != blocksList->end();) {
+            block = *it;
+            ++blkPosition;
+            size_t blkIndex = block->getIndex();
+            if (block->getPath() == path && inList(hitList, blkIndex)) {
+                cerr << "cache hit: index = " << blkIndex << endl; //todo
+                char* blkData = block->getData();
+                memcpy(dataArr + ((blkIndex - lowerIdx) * blkSize), blkData, blkSize); //todo check if +1 needed
+                if (blkPosition > nNewBlks) {
+                    block->incRefCounter();
+                }
+                it = blocksList->erase(it);
+                blocksList->push_front(block);
+            }
+            else {
+                ++it;
             }
         }
     }
 
-    // copying the requested data to the buffer
-    data.substr(start % blkSize, end % blkSize); //todo check if correct
-    strcpy(buf, data.c_str());
-    return (int) strlen(buf);
-}
-
-
-/*
- *
- */
-string Cache::cacheHit(size_t blkIndex) {
-    string blkData = "";
-    unsigned int blkPosition = 0;
-    Block *hitBlock;
-    for (Block *block : *blocksList) {
-        ++blkPosition;
-        if (block->getIndex() == blkIndex) {
-            hitBlock = block;
-            blocksList->remove(block);
-            break;
-        }
-    }
-    blkData = hitBlock->getData();
-    if (blkPosition > nNewBlks) {
-        hitBlock->incRefCounter();
-    }
-    blocksList->push_front(hitBlock);
-    return blkData;
-}
-
-/*
- *
- */
-int Cache::cacheMiss(size_t blkIndex, bool pathInMap, string blkPath, int fd, string & data) {
-    if (!pathInMap) {
+    // create set for new path in the cache
+    if (!isPathInMap) {
         try {
-            blocksMap->insert(make_pair(blkPath, new unordered_set<size_t>()));
+            blocksMap->insert(make_pair(path, new unordered_set<size_t>()));
         } catch (bad_alloc) {
             return -errno;
         }
     }
-    blocksMap->at(blkPath)->insert(blkIndex);
+    return SUCCESS;
+}
 
-    if (blocksList->size() == cacheSize) {
-        removeBlockBFR();
-    }
 
-    char* buffer = (char*) aligned_alloc(blkSize, blkSize); //todo!!!!!!
-    size_t bytesRead = 0;
-    int c = 0;
-    do {
-        ++c;
-        if (c == 20) {
-            cerr << "wrong" << endl;
-            break;
+/*
+ *
+ */
+int Cache::cacheMiss(IdxList missList, int fd, string path, size_t lowerIdx, char* dataArr) {
+    // cache misses
+    for (size_t blkIndex : missList) {
+        if (blocksList->size() == cacheSize) {
+            removeBlockBFR();
         }
-        // todo how does this work if first pread didnt catch all blockf ?? (buffer would override).
-        ssize_t preadRet = pread(fd, buffer, blkSize, blkIndex * blkSize);
-        if (preadRet < SUCCESS) {
+        char* buffer = (char*) aligned_alloc(blkSize, blkSize);
+        if (buffer == NULL) {
             return -errno;
         }
-        bytesRead += preadRet;
-    } while (bytesRead != 0 && bytesRead != blkSize);
-    string bufferStr = buffer;
-    free(buffer);
-    Block* block;
-    try {
-        block = new Block(blkPath, blkIndex, bufferStr);
-    } catch(bad_alloc) {
-        return -errno;
+        if (pread(fd, buffer, blkSize, blkIndex * blkSize) < SUCCESS) {
+            return -errno;
+        }
+        Block* block;
+        try {
+            block = new Block(path, blkIndex, buffer);
+        } catch(bad_alloc) {
+            return -errno;
+        }
+        blocksMap->at(path)->insert(blkIndex);
+        memcpy(dataArr + ((blkIndex - lowerIdx) * blkSize), buffer, blkSize); //todo check if +1 needed
+        cerr << "cache miss: index = " << blkIndex << endl; //todo
+        blocksList->push_front(block);
     }
-    blocksMap->at(blkPath)->insert(blkIndex);
-    blocksList->push_front(block);
-    data += bufferStr;
     return SUCCESS;
 }
 
@@ -237,6 +286,8 @@ std::string Cache::getCacheData() {
 
     return buf;
 }
+
+
 
 //void Cache::divideBlocks(string path, size_t lowerIdx, size_t upperIdx,
 //                         IdxList &cacheHitList, IdxList &cacheMissList)

@@ -3,30 +3,21 @@ CFLAGS = -Wall -std=c++11 -D_FILE_OFFSET_BITS=64
 EXTRA_FILES = Makefile README
 
 
-all: CachingFileSystemApp
-	
+all: cache
 
-
-CachingFileSystemApp : CachingFileSystem.cpp FBR.h FBR.cpp
-#	${CC} ${CFLAGS} CashTemp.cpp `pkg-config fuse --cflags --libs` -o caching
+cache: CachingFileSystem.cpp FBR.h
 	${CC} ${CFLAGS} CachingFileSystem.cpp FBR.cpp  `pkg-config fuse --cflags --libs` -o caching	
-	caching /tmp/root /tmp/mount 10 0.5 0.5
-	
-	
-	
-	
-#	${CC} ${CFLAGS} CashTemp.cpp `pkg-config fuse --cflags --libs` -o caching
-	
-	
-	
-	
 
-#caching /cs/stud/roee28c/ClionProjects/ex4OS/rootDir /cs/stud/roee28c/ClionProjects/ex4OS/mountDir 10 0.5 0.5
-	
-	
-	
+run: cache
+	caching /tmp/root /tmp/mount 30 0.3 0.3
+
 un:
 	fusermount -u /tmp/mount
+
+fuseTest: cache
+	python ../test4/fuseTest.py caching
+	
+	
 	
 dirs:
 	mkdir /tmp/root
@@ -37,46 +28,22 @@ dirs:
 	echo dfjas adksjgdkjasg ldfkja klajgl kjasg > /tmp/root/f1
 
 py:
-	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); os.ioctl(fd,0); os.close(fd)"
+	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); fcntl.ioctl(fd,0); os.close(fd)"
 	#fcntl.ioctl(fd, 0);
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-app: CachingFileSystem.o
-	$(CC) $(CFLAGS) CachingFileSystem.o -o myApp
-	
-
-	
+renpy:
+	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); fcntl.ioctl(fd,0); os.close(fd)"
 	
 
 lib: CachingFileSystem.o
 	ar rcs CachingFileSystem.a CachingFileSystem.o   
 
-Search: Search.o lib
-	$(CC) $(CFLAGS) Search.o -L. MapReduceFramework.a -o Search
-	
-	
-	
-	
-
 tar:
-	tar cvf ex4.tar CachingFileSystem.cpp $(EXTRA_FILES)
+	tar cvf ex4.tar CachingFileSystem.cpp FBR.cpp FBR.h $(EXTRA_FILES)
 
 clean: 
-	rm *.o CachingFileSystem.a ex4.tar myApp caching
 
 .DEFAULT_GOAL := all
 
 .PHONY: 
 	clean all un
-

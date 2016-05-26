@@ -167,7 +167,9 @@ static bool validArgs(int argc, char* argv[], unsigned int &nOldblks, unsigned i
 static int writeFuncToLog(string funcName)
 {
 	// openning the log file
-	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);        // todo: add ios::app flag
+//	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);        // todo: add ios::app flag
+	string t = "/tmp/";
+	cFSdata.logFile.open(t +  LOG_NAME, ios::app);        // todo: add ios::app flag
 	if (cFSdata.logFile.fail()) {
 		return -errno; 		// todo how to handle this exception (not like this!).
 	}
@@ -190,6 +192,11 @@ static int writeFuncToLog(string funcName)
  */
 static string getFullPath(string path)
 {
+	writeFuncToLog("rootDirPath2: "); //todo
+	writeFuncToLog(cFSdata.rootDirPath); //todo
+
+	writeFuncToLog("fullpath: "); //todo
+	writeFuncToLog(cFSdata.rootDirPath +  path); //todo
 	return cFSdata.rootDirPath  +  path;
 }
 
@@ -247,7 +254,7 @@ int caching_fgetattr(const char *path, struct stat *statbuf,
 		return -errno;
 	}
 
-	return checkSysCallFS(fstat(fi->fh, statbuf));
+	return checkSysCallFS(lstat(path, statbuf));
 }
 
 /**
@@ -352,8 +359,20 @@ int caching_read(const char *path, char *buf, size_t size,
 		return -errno;
 	}
 
-	int n = cFSdata.cache->readData(buf, (size_t) offset, size, (size_t) statBuf.st_size, (int) fi->fh, path);
-	cerr << "readDataRet: " << n <<  " buff: " << buf << endl; //todo
+	string fullPath = getFullPath(string(path)); //todo check if good
+	size_t start = (size_t) offset;
+	size_t fileSize = (size_t) statBuf.st_size;
+	size_t end = min(start + size, fileSize); // todo maybe + 1
+
+	cerr << "read called:\n" << "start(offset): " << start << "\nend: " << end << "\nend - start " << end - start << "\nfileSize: " << fileSize << endl; //todo
+
+	if (start >= end) {
+		cerr << "readDataRet: " << 0 << endl; //todo
+		return 0;
+	}
+
+	int n = cFSdata.cache->readData(buf, start, end, (int) fi->fh, fullPath);
+	cerr << "readDataRet: " << n << endl; //todo
 	return n;
 }
 
@@ -539,7 +558,22 @@ int caching_rename(const char *path, const char *newpath)
 	string fullPath = getFullPath(string(path));
 	string fullNewPath = getFullPath(string(newpath));
 
+	string buf = "caching_ioctl before\n"; // todo
+	buf += cFSdata.cache->getCacheData();
+	if (writeFuncToLog(buf) != SUCCESS) {
+		return -errno;
+	}
+	string buf3 = fullPath + " to " + fullNewPath;
+	if (writeFuncToLog(buf3) != SUCCESS) {
+		return -errno;
+	}
 	cFSdata.cache->rename(fullPath, fullNewPath);
+
+	string buf1 = "caching_ioctl after\n"; //todo
+	buf1 += cFSdata.cache->getCacheData();
+	if (writeFuncToLog(buf1) != SUCCESS) {
+		return -errno;
+	}
 
 	return checkSysCallFS(rename(fullPath.c_str(), fullNewPath.c_str()));
 }
@@ -670,8 +704,25 @@ int main(int argc, char* argv[])
 		return FAILURE;
 	}
 
+//	writeFuncToLog("nOldBlks:"); //todo
+//	writeFuncToLog(to_string(nOldBlks)); //todo
+//	writeFuncToLog("nNewBlks:"); //todo
+//	writeFuncToLog(to_string(nNewBlks)); //todo
+//	writeFuncToLog("cacheSize:"); //todo
+//	writeFuncToLog(to_string(cacheSize)); //todo
+
+	char* rootPath; //todo check and also see if need to release
+	if ((rootPath = realpath(argv[ROOT_DIR_INDEX], NULL)) == NULL) {
+		return -errno;
+	}
+	char* mountPath; //todo check and also see if need to release
+	if ((mountPath = realpath(argv[MOUNT_DIR_INDEX], NULL)) == NULL) {
+		return -errno;
+	}
+	argv[MOUNT_DIR_INDEX] = mountPath;
 	// init the CFS data
-	cFSdata.rootDirPath = string(argv[ROOT_DIR_INDEX]) + "/";
+	cFSdata.rootDirPath = string(rootPath) + "/";
+
 	struct stat fi;
 	checkSysCallMain(stat(WORKING_DIR, &fi), "stat");
 	size_t blkSize = (size_t) fi.st_blksize;
@@ -680,15 +731,20 @@ int main(int argc, char* argv[])
 	} catch (bad_alloc) {
 		exceptionHandlerMain("new");
 	}
-
+	if (writeFuncToLog("rootpath") != SUCCESS) { //todo delete
+		return -errno;
+	}
+	if (writeFuncToLog(cFSdata.rootDirPath) != SUCCESS) { //todo delete
+		return -errno;
+	}
 	init_caching_oper();
 	argv[1] = argv[2];
 	for (int i = 2; i< (argc - 1); i++){
 		argv[i] = NULL;
 	}
-        argv[3] = (char*) "-f";
+//        argv[3] = (char*) "-f";
 	argv[2] = (char*) "-s";
-	argc = 4;
+	argc = 3;
 
 	return fuse_main(argc, argv, &caching_oper, NULL);
 }
