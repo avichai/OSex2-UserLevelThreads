@@ -101,11 +101,22 @@ Cache::~Cache() {
  * todo: -should ret SUCCESS? -is it possible to receive neg size and offset?
  */
 int Cache::readData(char* buf, size_t start, size_t end, int fd, string path) {
+    if (start >= end) {
+        return 0;
+    }
+
     // the block indexes needed to perform the read task
     size_t lowerIdx = start / blkSize;
     //todo check what happened when end = blkSize
     size_t upperIdx = (size_t) ceil(end / blkSize) + 1; // +1 to adjust upper bound
     size_t diffIdx = upperIdx - lowerIdx;
+
+    cerr << "#################################################################" << endl;
+    cerr << "INDEXES:" << endl;
+    cerr << "lower: " << lowerIdx << endl;
+    cerr << "upper: " << upperIdx << endl;
+    cerr << "paht: " << path << endl;
+    cerr << "#################################################################" << endl;
 
     // assigns hit and miss block lists
     bool pathInMap = blocksMap->find(path) != blocksMap->end();

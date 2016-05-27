@@ -1,12 +1,14 @@
 CC = g++
-CFLAGS = -Wall -std=c++11 -D_FILE_OFFSET_BITS=64
+CFLAGS = -Wall -std=c++11 -D_FILE_OFFSET_BITS=64 -g
 EXTRA_FILES = Makefile README
-
+ARG2 = caching /tmp/root /tmp/mount 30 0.3 0.3
+ARG3 = python ../test4/fuseTest.py caching
 
 all: cache
 
 cache: CachingFileSystem.cpp FBR.h
 	${CC} ${CFLAGS} CachingFileSystem.cpp FBR.cpp  `pkg-config fuse --cflags --libs` -o caching	
+	
 
 run: cache
 	caching /tmp/root /tmp/mount 30 0.3 0.3
@@ -37,6 +39,13 @@ renpy:
 
 lib: CachingFileSystem.o
 	ar rcs CachingFileSystem.a CachingFileSystem.o   
+	
+	
+valgrind1: cache
+	valgrind --leak-check=full --show-possibly-lost=yes --show-reachable=yes --undef-value-errors=yes  ${ARG2}
+
+valgrind2: 
+	valgrind --leak-check=full --show-possibly-lost=yes --show-reachable=yes --undef-value-errors=yes  ${ARG3}
 
 tar:
 	tar cvf ex4.tar CachingFileSystem.cpp FBR.cpp FBR.h $(EXTRA_FILES)

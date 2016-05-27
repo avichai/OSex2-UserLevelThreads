@@ -38,16 +38,14 @@ struct CFSdata
 	string rootDirPath;
 	ofstream logFile;
 	Cache* cache;
+	char* rootPath;
+	char* mountPath;
 };
 
 // ------------------------------- globals -------------------------------------
 struct fuse_operations caching_oper;
 static CFSdata cFSdata;
 
-
-
-//TODO delete later (realize what doing)
-#define Caching_DATA ((struct CFSdata*) fuse_get_context()->private_data)
 
 
 // -------------------------- static functions ---------------------------------
@@ -125,7 +123,8 @@ static bool isPosInt(char* str, unsigned int &cacheSize)
 /*
  * Validates the fOld and fNew args and assigns old/new number of blocks.
  */
-static bool validPercentage(double percentage, unsigned int cacheSize, unsigned int &nBlks)
+static bool validPercentage(double percentage, unsigned int cacheSize,
+							unsigned int &nBlks)
 {
 	int tmpNBlks = (int) (percentage * cacheSize);
 	nBlks = (unsigned int) tmpNBlks;
@@ -135,7 +134,8 @@ static bool validPercentage(double percentage, unsigned int cacheSize, unsigned 
 /*
  * Validates the block args.
  */
-static bool validBlockArgs(char* argv[], unsigned int &nOldblks, unsigned int &nNewBlks, unsigned int &cacheSize)
+static bool validBlockArgs(char* argv[], unsigned int &nOldblks,
+						   unsigned int &nNewBlks, unsigned int &cacheSize)
 {
 //	int nBlocks;
 	double fOld, fNew;
@@ -148,13 +148,12 @@ static bool validBlockArgs(char* argv[], unsigned int &nOldblks, unsigned int &n
 		   fOld + fNew <= 1;
 }
 
-
 /*
  * Validates the program's arguments.
  */
-static bool validArgs(int argc, char* argv[], unsigned int &nOldblks, unsigned int &nNewBlks, unsigned int &cacheSize)
+static bool validArgs(int argc, char* argv[], unsigned int &nOldblks,
+					  unsigned int &nNewBlks, unsigned int &cacheSize)
 {
-
 	return argc == VALID_N_ARGS &&
 		   validDir(argv[ROOT_DIR_INDEX]) &&
 		   validDir(argv[MOUNT_DIR_INDEX]) &&
@@ -166,14 +165,11 @@ static bool validArgs(int argc, char* argv[], unsigned int &nOldblks, unsigned i
  */
 static int writeFuncToLog(string funcName)
 {
-	// openning the log file
-//	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);        // todo: add ios::app flag
-	string t = "/tmp/";
-	cFSdata.logFile.open(t +  LOG_NAME, ios::app);        // todo: add ios::app flag
+	// opening the log file
+	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);
 	if (cFSdata.logFile.fail()) {
-		return -errno; 		// todo how to handle this exception (not like this!).
+		return -errno;
 	}
-
 
 	time_t seconds = time(NULL);
 	if (seconds == (time_t) TIME_FAILURE) {
@@ -182,7 +178,7 @@ static int writeFuncToLog(string funcName)
 	cFSdata.logFile << seconds << " " << funcName << endl;
 
 	// closing the log file
-	cFSdata.logFile.close();		// todo: check if close fails
+	cFSdata.logFile.close();
 
 	return SUCCESS;
 }
@@ -192,11 +188,6 @@ static int writeFuncToLog(string funcName)
  */
 static string getFullPath(string path)
 {
-	writeFuncToLog("rootDirPath2: "); //todo
-	writeFuncToLog(cFSdata.rootDirPath); //todo
-
-	writeFuncToLog("fullpath: "); //todo
-	writeFuncToLog(cFSdata.rootDirPath +  path); //todo
 	return cFSdata.rootDirPath  +  path;
 }
 
@@ -210,7 +201,6 @@ static string getFullPath(string path)
  */
 int caching_getattr(const char *path, struct stat *statbuf)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! getattr called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -238,8 +228,6 @@ int caching_getattr(const char *path, struct stat *statbuf)
 int caching_fgetattr(const char *path, struct stat *statbuf,
 					 struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! fgetattr called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
-
 	// On FreeBSD, trying to do anything with the mountpoint ends up
 	// opening it, and then using the FD for an fgetattr.  So in the
 	// special case of a path of "/", I need to do a getattr on the
@@ -270,7 +258,6 @@ int caching_fgetattr(const char *path, struct stat *statbuf,
  */
 int caching_access(const char *path, int mask)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_access called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -297,7 +284,6 @@ int caching_access(const char *path, int mask)
  */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_open called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -347,7 +333,6 @@ int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
 
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_read called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -359,17 +344,12 @@ int caching_read(const char *path, char *buf, size_t size,
 		return -errno;
 	}
 
-	string fullPath = getFullPath(string(path)); //todo check if good
+	string fullPath = getFullPath(string(path));
 	size_t start = (size_t) offset;
 	size_t fileSize = (size_t) statBuf.st_size;
-	size_t end = min(start + size, fileSize); // todo maybe + 1
+	size_t end = min(start + size, fileSize);
 
-	cerr << "read called:\n" << "start(offset): " << start << "\nend: " << end << "\nend - start " << end - start << "\nfileSize: " << fileSize << endl; //todo
-
-	if (start >= end) {
-		cerr << "readDataRet: " << 0 << endl; //todo
-		return 0;
-	}
+//	cerr << "read called:\n" << "start(offset): " << start << "\nend: " << end << "\nend - start " << end - start << "\nfileSize: " << fileSize << endl; //todo
 
 	int n = cFSdata.cache->readData(buf, start, end, (int) fi->fh, fullPath);
 	cerr << "readDataRet: " << n << endl; //todo
@@ -401,7 +381,6 @@ int caching_read(const char *path, char *buf, size_t size,
  */
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_flush called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -424,7 +403,6 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
  */
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_release called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -445,7 +423,6 @@ int caching_release(const char *path, struct fuse_file_info *fi)
  */
 int caching_opendir(const char *path, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_opendir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -453,7 +430,6 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 		return -errno;
 	}
 	DIR* dp;
-	int retstat = 0;
 
 	string fullPath = getFullPath(string(path));
 
@@ -461,12 +437,12 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 	// return status.
 	dp = opendir(fullPath.c_str());
 	if (dp == NULL) {
-		retstat = -errno;
+		return -errno;
 	}
 
 	fi->fh = (intptr_t) dp;
 
-	return retstat;
+	return SUCCESS;
 }
 
 /** Read directory
@@ -486,7 +462,6 @@ int caching_readdir(const char *path, void *buf,
 					fuse_fill_dir_t filler,
 					off_t offset, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! readdir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -522,7 +497,6 @@ int caching_readdir(const char *path, void *buf,
 		}
 	} while ((de = readdir(dp)) != NULL);
 
-
 	return SUCCESS;
 }
 
@@ -532,7 +506,6 @@ int caching_readdir(const char *path, void *buf,
  */
 int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_releasedir called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -548,7 +521,6 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
  * */
 int caching_rename(const char *path, const char *newpath)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_rename called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
@@ -558,22 +530,7 @@ int caching_rename(const char *path, const char *newpath)
 	string fullPath = getFullPath(string(path));
 	string fullNewPath = getFullPath(string(newpath));
 
-	string buf = "caching_ioctl before\n"; // todo
-	buf += cFSdata.cache->getCacheData();
-	if (writeFuncToLog(buf) != SUCCESS) {
-		return -errno;
-	}
-	string buf3 = fullPath + " to " + fullNewPath;
-	if (writeFuncToLog(buf3) != SUCCESS) {
-		return -errno;
-	}
 	cFSdata.cache->rename(fullPath, fullNewPath);
-
-	string buf1 = "caching_ioctl after\n"; //todo
-	buf1 += cFSdata.cache->getCacheData();
-	if (writeFuncToLog(buf1) != SUCCESS) {
-		return -errno;
-	}
 
 	return checkSysCallFS(rename(fullPath.c_str(), fullNewPath.c_str()));
 }
@@ -595,11 +552,8 @@ For your task, the function needs to return NULL always
  */
 void *caching_init(struct fuse_conn_info *conn)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_init called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
-
 	writeFuncToLog("caching_init");
-
-	return Caching_DATA;		// TODO what is this line?
+	return NULL;
 }
 
 
@@ -613,11 +567,12 @@ If a failure occurs in this function, do nothing
 
  * Introduced in version 2.3
  */
-void caching_destroy(void *userdata)
+void caching_destroy(void *userdata)	//todo
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_destroy called !!!!!!!!!!!!!!!!!!!!!" << endl;		//todo	int retstat = 0;
 	writeFuncToLog("caching_destroy");
 	delete cFSdata.cache;
+	free(cFSdata.mountPath);
+	free(cFSdata.rootPath);
 }
 
 /**
@@ -637,7 +592,6 @@ void caching_destroy(void *userdata)
 int caching_ioctl (const char *, int cmd, void *arg,
 				   struct fuse_file_info *, unsigned int flags, void *data)
 {
-	cerr << "!!!!!!!!!!!!!!!!!!!! caching_ioctl called !!!!!!!!!!!!!!!!!!!!!" << endl;
 	string buf = "caching_ioctl\n";
 	buf += cFSdata.cache->getCacheData();
 	if (writeFuncToLog(buf) != SUCCESS) {
@@ -704,20 +658,13 @@ int main(int argc, char* argv[])
 		return FAILURE;
 	}
 
-//	writeFuncToLog("nOldBlks:"); //todo
-//	writeFuncToLog(to_string(nOldBlks)); //todo
-//	writeFuncToLog("nNewBlks:"); //todo
-//	writeFuncToLog(to_string(nNewBlks)); //todo
-//	writeFuncToLog("cacheSize:"); //todo
-//	writeFuncToLog(to_string(cacheSize)); //todo
-
 	char* rootPath; //todo check and also see if need to release
 	if ((rootPath = realpath(argv[ROOT_DIR_INDEX], NULL)) == NULL) {
-		return -errno;
+		exceptionHandlerMain("realpath");
 	}
 	char* mountPath; //todo check and also see if need to release
 	if ((mountPath = realpath(argv[MOUNT_DIR_INDEX], NULL)) == NULL) {
-		return -errno;
+		exceptionHandlerMain("realpath");
 	}
 	argv[MOUNT_DIR_INDEX] = mountPath;
 	// init the CFS data
@@ -731,12 +678,7 @@ int main(int argc, char* argv[])
 	} catch (bad_alloc) {
 		exceptionHandlerMain("new");
 	}
-	if (writeFuncToLog("rootpath") != SUCCESS) { //todo delete
-		return -errno;
-	}
-	if (writeFuncToLog(cFSdata.rootDirPath) != SUCCESS) { //todo delete
-		return -errno;
-	}
+
 	init_caching_oper();
 	argv[1] = argv[2];
 	for (int i = 2; i< (argc - 1); i++){
@@ -749,3 +691,19 @@ int main(int argc, char* argv[])
 	return fuse_main(argc, argv, &caching_oper, NULL);
 }
 
+
+//	string buf1 = "caching_ioctl after\n"; //todo
+//	buf1 += cFSdata.cache->getCacheData();
+//	if (writeFuncToLog(buf1) != SUCCESS) {
+//		return -errno;
+//	}
+
+//	string buf = "caching_ioctl before\n"; // todo
+//	buf += cFSdata.cache->getCacheData();
+//	if (writeFuncToLog(buf) != SUCCESS) {
+//		return -errno;
+//	}
+//	string buf3 = fullPath + " to " + fullNewPath;
+//	if (writeFuncToLog(buf3) != SUCCESS) {
+//		return -errno;
+//	}
