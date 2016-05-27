@@ -1,6 +1,7 @@
 #ifndef EX4OS_FBR_H
 #define EX4OS_FBR_H
 
+
 #include <iostream>
 #include <list>
 #include <unordered_map>
@@ -33,7 +34,7 @@ public:
     }
 
     Block(std::string path, size_t index, char* data) :
-            path(path), index(index), refCounter(REF_COUNTER_INIT), data(data) {}
+            path(path), index(index), refCounter(REF_COUNTER_INIT), data(data){}
 
     virtual  ~Block();
 
@@ -75,11 +76,14 @@ private:
     unsigned int cacheSize;
 
     void removeBlockBFR();
-    int cacheHit(IdxList hitList, std::string path, size_t lowerIdx, char*  dataArr);
-    int cacheMiss(IdxList missList, int fd, std::string path, size_t lowerIdx, char* dataArr);
+    int cacheHit(IdxList hitList, std::string path, size_t lowerIdx,
+                 char*  dataArr);
+    int cacheMiss(IdxList missList, int fd, std::string path, size_t lowerIdx,
+                  char* dataArr);
 
 public:
-    Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks, unsigned int cacheSize);
+    Cache(size_t blkSize, unsigned int nOldBlks, unsigned int nNewBlks,
+          unsigned int cacheSize);
     virtual ~Cache();
 
     int readData(char *buf, size_t start, size_t end, int fd, std::string path);

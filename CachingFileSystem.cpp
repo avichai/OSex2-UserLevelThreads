@@ -349,11 +349,7 @@ int caching_read(const char *path, char *buf, size_t size,
 	size_t fileSize = (size_t) statBuf.st_size;
 	size_t end = min(start + size, fileSize);
 
-//	cerr << "read called:\n" << "start(offset): " << start << "\nend: " << end << "\nend - start " << end - start << "\nfileSize: " << fileSize << endl; //todo
-
-	int n = cFSdata.cache->readData(buf, start, end, (int) fi->fh, fullPath);
-	cerr << "readDataRet: " << n << endl; //todo
-	return n;
+	return cFSdata.cache->readData(buf, start, end, (int) fi->fh, fullPath);
 }
 
 /** Possibly flush cached data
@@ -567,12 +563,10 @@ If a failure occurs in this function, do nothing
 
  * Introduced in version 2.3
  */
-void caching_destroy(void *userdata)	//todo
+void caching_destroy(void *userdata)
 {
 	writeFuncToLog("caching_destroy");
 	delete cFSdata.cache;
-	free(cFSdata.mountPath);
-	free(cFSdata.rootPath);
 }
 
 /**
@@ -594,10 +588,11 @@ int caching_ioctl (const char *, int cmd, void *arg,
 {
 	string buf = "caching_ioctl\n";
 	buf += cFSdata.cache->getCacheData();
-	if (writeFuncToLog(buf) != SUCCESS) {
-		return -errno;
-	}
-	return 0;
+//	if (writeFuncToLog(buf) != SUCCESS) {
+//		return -errno;
+//	}
+//	return 0;
+	return checkSysCallFS(writeFuncToLog(buf));
 }
 
 
@@ -658,17 +653,14 @@ int main(int argc, char* argv[])
 		return FAILURE;
 	}
 
-	char* rootPath; //todo check and also see if need to release
+	char* rootPath;
 	if ((rootPath = realpath(argv[ROOT_DIR_INDEX], NULL)) == NULL) {
 		exceptionHandlerMain("realpath");
 	}
-	char* mountPath; //todo check and also see if need to release
-	if ((mountPath = realpath(argv[MOUNT_DIR_INDEX], NULL)) == NULL) {
-		exceptionHandlerMain("realpath");
-	}
-	argv[MOUNT_DIR_INDEX] = mountPath;
+
 	// init the CFS data
 	cFSdata.rootDirPath = string(rootPath) + "/";
+	free(rootPath);
 
 	struct stat fi;
 	checkSysCallMain(stat(WORKING_DIR, &fi), "stat");
@@ -690,20 +682,3 @@ int main(int argc, char* argv[])
 
 	return fuse_main(argc, argv, &caching_oper, NULL);
 }
-
-
-//	string buf1 = "caching_ioctl after\n"; //todo
-//	buf1 += cFSdata.cache->getCacheData();
-//	if (writeFuncToLog(buf1) != SUCCESS) {
-//		return -errno;
-//	}
-
-//	string buf = "caching_ioctl before\n"; // todo
-//	buf += cFSdata.cache->getCacheData();
-//	if (writeFuncToLog(buf) != SUCCESS) {
-//		return -errno;
-//	}
-//	string buf3 = fullPath + " to " + fullNewPath;
-//	if (writeFuncToLog(buf3) != SUCCESS) {
-//		return -errno;
-//	}
