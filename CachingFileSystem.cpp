@@ -1,5 +1,5 @@
 #define FUSE_USE_VERSION 26
-// ------------------------------ includes -------------------------------------
+// ------------------------------ includes ------------------------------------
 #include <fuse.h>
 #include <fstream>
 #include <iostream>
@@ -11,7 +11,7 @@
 using namespace std;
 
 
-// ------------------------------- macros --------------------------------------
+// ------------------------------- macros -------------------------------------
 
 #define FAILURE 1
 #define SUCCESS 0
@@ -29,7 +29,7 @@ using namespace std;
 
 
 
-// ------------------------------- struct --------------------------------------
+// ------------------------------- struct -------------------------------------
 /*
  * Chaching FS data structure.
  */
@@ -38,17 +38,15 @@ struct CFSdata
 	string rootDirPath;
 	ofstream logFile;
 	Cache* cache;
-	char* rootPath;
-	char* mountPath;
 };
 
-// ------------------------------- globals -------------------------------------
+// ------------------------------- globals ------------------------------------
 struct fuse_operations caching_oper;
 static CFSdata cFSdata;
 
 
 
-// -------------------------- static functions ---------------------------------
+// -------------------------- static functions --------------------------------
 /*
  * Returns true iff the path is the log file's path.
  */
@@ -166,7 +164,7 @@ static bool validArgs(int argc, char* argv[], unsigned int &nOldblks,
 static int writeFuncToLog(string funcName)
 {
 	// opening the log file
-	cFSdata.logFile.open(cFSdata.rootDirPath +  LOG_NAME, ios::app);
+	cFSdata.logFile.open(cFSdata.rootDirPath + "/" + LOG_NAME, ios::app);
 	if (cFSdata.logFile.fail()) {
 		return -errno;
 	}
@@ -192,7 +190,7 @@ static string getFullPath(string path)
 }
 
 
-// ------------------------------ functions ------------------------------------
+// ------------------------------ functions -----------------------------------
 /** Get file attributes.
  *
  * Similar to stat().  The 'st_dev' and 'st_blksize' fields are
@@ -587,11 +585,10 @@ int caching_ioctl (const char *, int cmd, void *arg,
 				   struct fuse_file_info *, unsigned int flags, void *data)
 {
 	string buf = "caching_ioctl\n";
-	buf += cFSdata.cache->getCacheData();
-//	if (writeFuncToLog(buf) != SUCCESS) {
-//		return -errno;
-//	}
-//	return 0;
+	if (!cFSdata.cache->isCacheEmpty()) {
+		buf += cFSdata.cache->getCacheData(cFSdata.rootDirPath);
+	}
+	buf.pop_back();
 	return checkSysCallFS(writeFuncToLog(buf));
 }
 
@@ -659,7 +656,7 @@ int main(int argc, char* argv[])
 	}
 
 	// init the CFS data
-	cFSdata.rootDirPath = string(rootPath) + "/";
+	cFSdata.rootDirPath = string(rootPath);
 	free(rootPath);
 
 	struct stat fi;

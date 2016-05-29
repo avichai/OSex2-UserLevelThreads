@@ -8,7 +8,7 @@ ARG2 = python ../test4/fuseTest.py caching
 all: cache
 
 cache: CachingFileSystem.cpp FBR.h
-	${CC} ${CFLAGS} CachingFileSystem.cpp FBR.cpp  `pkg-config fuse --cflags --libs` -o CachingFileSystem
+	${CC} ${CFLAGS} CachingFileSystem.cpp FBR.cpp  `pkg-config fuse --cflags --libs` -o caching	
 	
 
 run: cache
@@ -26,12 +26,16 @@ dirs:
 	mkdir /tmp/root
 	mkdir /tmp/mount
 	mkdir /tmp/root/d1
+	mkdir /tmp/root/d2
+	mkdir /tmp/root/d3	
 	touch /tmp/root/f1
 	touch /tmp/root/d1/f2
+	touch /tmp/root/d1/f3
 	echo dfjas adksjgdkjasg ldfkja klajgl kjasg > /tmp/root/f1
+	echo dfjas adksjgdkjasg ldfkja klajgl kjasg > /tmp/root/d1/f2
 
 py:
-	python -c "import os, fcntl; fd = os.open('/tmp/mount/f1', os.O_RDONLY); fcntl.ioctl(fd,0); os.close(fd)"
+	python -c "import os, fcntl; fd = os.open('/tmp/mount/a', os.O_RDONLY); fcntl.ioctl(fd,0); os.close(fd)"
 	#fcntl.ioctl(fd, 0);
 	
 renpy:
@@ -42,18 +46,14 @@ lib: CachingFileSystem.o
 	ar rcs CachingFileSystem.a CachingFileSystem.o   
 	
 	
-valgrind1: cache
+valgrind: cache
 	valgrind --leak-check=full --show-possibly-lost=yes --show-reachable=yes --undef-value-errors=yes  ${ARG1}
 
-valgrind2: 
-	valgrind --leak-check=full --show-possibly-lost=yes --show-reachable=yes --undef-value-errors=yes  ${ARG2}
-	
 
 tar:
 	tar cvf ex4.tar CachingFileSystem.cpp FBR.cpp FBR.h $(EXTRA_FILES)
 
 clean: 
-	rm CachingFileSystem *.o ex4.tar
 
 .DEFAULT_GOAL := all
 

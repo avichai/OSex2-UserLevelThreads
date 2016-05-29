@@ -15,7 +15,6 @@ class Block;
 class Cache;
 
 typedef std::list<Block*> BlkList;
-typedef std::list<size_t> IdxList;
 
 
 /**
@@ -34,7 +33,7 @@ public:
     }
 
     Block(std::string path, size_t index, char* data) :
-            path(path), index(index), refCounter(REF_COUNTER_INIT), data(data){}
+            path(path), index(index), refCounter(REF_COUNTER_INIT),data(data){}
 
     virtual  ~Block();
 
@@ -58,6 +57,7 @@ public:
         ++refCounter;
     }
 
+    std::string getRelativePath(std::string rootPath);
 };
 
 
@@ -75,10 +75,10 @@ private:
     unsigned int nNewBlks;
     unsigned int cacheSize;
 
-    void removeBlockBFR();
-    int cacheHit(IdxList hitList, std::string path, size_t lowerIdx,
-                 char*  dataArr);
-    int cacheMiss(IdxList missList, int fd, std::string path, size_t lowerIdx,
+    void removeBlockBFR(std::string pathToKeep);
+    void cacheHit(std::string path, size_t index, size_t lowerIdx,
+                  char*  dataArr);
+    int cacheMiss(int fd, std::string path, size_t index, size_t lowerIdx,
                   char* dataArr);
 
 public:
@@ -86,9 +86,10 @@ public:
           unsigned int cacheSize);
     virtual ~Cache();
 
-    int readData(char *buf, size_t start, size_t end, int fd, std::string path);
+    int readData(char *buf, size_t start, size_t end, int fd,std::string path);
     void rename(std::string fullPath, std::string fullNewPath);
-    std::string getCacheData();
+    std::string getCacheData(std::string rootPath);
+    inline bool isCacheEmpty() { return blocksList->empty(); }
 };
 
 
