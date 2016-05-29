@@ -51,8 +51,10 @@ static CFSdata cFSdata;
  * Returns true iff the path is the log file's path.
  */
 static bool isLogFile(string path) {
+	cerr << "path: " << path << endl; //todo
 	string log = "/";
 	log += LOG_NAME;
+	cerr << "log: " << log << endl; //todo
 	return path == log;
 }
 
@@ -89,9 +91,8 @@ static int checkSysCallFS(int result)
  */
 static bool validDir(char* dirPath)
 {
-	struct stat statBuf;
-	checkSysCallMain(stat(dirPath, &statBuf), "stat");
-	return (bool) S_ISDIR(statBuf.st_mode);
+	ifstream f(dirPath);
+	return f.good();
 }
 
 /*
@@ -202,7 +203,7 @@ int caching_getattr(const char *path, struct stat *statbuf)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_getattr") != SUCCESS)
+	if (writeFuncToLog("getattr") != SUCCESS)
 	{
 		return -errno;
 	}
@@ -236,7 +237,7 @@ int caching_fgetattr(const char *path, struct stat *statbuf,
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_fgetattr") != SUCCESS) {
+	if (writeFuncToLog("fgetattr") != SUCCESS) {
 		return -errno;
 	}
 
@@ -259,7 +260,7 @@ int caching_access(const char *path, int mask)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_access") != SUCCESS) {
+	if (writeFuncToLog("access") != SUCCESS) {
 		return -errno;
 	}
 
@@ -285,7 +286,7 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_open") != SUCCESS) {
+	if (writeFuncToLog("open") != SUCCESS) {
 		return -errno;
 	}
 
@@ -329,12 +330,11 @@ int caching_open(const char *path, struct fuse_file_info *fi)
  */
 int caching_read(const char *path, char *buf, size_t size,
 				 off_t offset, struct fuse_file_info *fi)
-
 {
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_read") != SUCCESS) {
+	if (writeFuncToLog("read") != SUCCESS) {
 		return -errno;
 	}
 	struct stat statBuf;
@@ -400,7 +400,7 @@ int caching_release(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_release") != SUCCESS) {
+	if (writeFuncToLog("release") != SUCCESS) {
 		return -errno;
 	}
 	// We need to close the file.  Had we allocated any resources
@@ -420,7 +420,7 @@ int caching_opendir(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_opendir") != SUCCESS) {
+	if (writeFuncToLog("opendir") != SUCCESS) {
 		return -errno;
 	}
 	DIR* dp;
@@ -459,7 +459,7 @@ int caching_readdir(const char *path, void *buf,
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog( "caching_readdir") != SUCCESS) {
+	if (writeFuncToLog( "readdir") != SUCCESS) {
 		return -errno;
 	}
 
@@ -483,7 +483,7 @@ int caching_readdir(const char *path, void *buf,
 	// returns something non-zero.  The first case just means I've
 	// read the whole directory; the second means the buffer is full.
 	do {
-		if (string(de->d_name) == LOG_NAME) {
+		if (string(de->d_name) == LOG_NAME && strcmp(path, "/") == 0) {
 			continue;
 		}
 		if (filler(buf, de->d_name, NULL, 0) != 0) {
@@ -503,7 +503,7 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_releasedir") != SUCCESS) {
+	if (writeFuncToLog("releasedir") != SUCCESS) {
 		return -errno;
 	}
 
@@ -518,7 +518,7 @@ int caching_rename(const char *path, const char *newpath)
 	if (isLogFile(path)) {
 		return -ENOENT;
 	}
-	if (writeFuncToLog("caching_rename") != SUCCESS) {
+	if (writeFuncToLog("rename") != SUCCESS) {
 		return -errno;
 	}
 	string fullPath = getFullPath(string(path));
@@ -546,7 +546,7 @@ For your task, the function needs to return NULL always
  */
 void *caching_init(struct fuse_conn_info *conn)
 {
-	writeFuncToLog("caching_init");
+	writeFuncToLog("init");
 	return NULL;
 }
 
@@ -563,7 +563,7 @@ If a failure occurs in this function, do nothing
  */
 void caching_destroy(void *userdata)
 {
-	writeFuncToLog("caching_destroy");
+	writeFuncToLog("destroy");
 	delete cFSdata.cache;
 }
 
@@ -584,7 +584,7 @@ void caching_destroy(void *userdata)
 int caching_ioctl (const char *, int cmd, void *arg,
 				   struct fuse_file_info *, unsigned int flags, void *data)
 {
-	string buf = "caching_ioctl\n";
+	string buf = "ioctl\n";
 	if (!cFSdata.cache->isCacheEmpty()) {
 		buf += cFSdata.cache->getCacheData(cFSdata.rootDirPath);
 	}

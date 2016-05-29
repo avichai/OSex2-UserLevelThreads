@@ -232,10 +232,10 @@ string Cache::getCacheData(string rootPath) {
     string buf = "";
 
     string fileName;
-    for (Block* block : *blocksList) {
-        fileName = block->getRelativePath(rootPath);
-        buf += fileName + " " + to_string(block->getIndex()+1) + " " +
-                to_string(block->getRefCounter()) + "\n";
+    for (auto it = (*blocksList).rbegin(); it != (*blocksList).rend(); ++it) {
+        fileName = (*it)->getRelativePath(rootPath);
+        buf += fileName + " " + to_string((*it)->getIndex()+1) + " " +
+               to_string((*it)->getRefCounter()) + "\n";
     }
     return buf;
 }
