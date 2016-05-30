@@ -1,0 +1,128 @@
+roee28c, avichai
+Roee Cates (308298827), Avichai BendDavid (203455126)
+EX: 2
+
+
+FILES:
+README -- this file.
+Makefile -- use make to create the uthreads library.
+usthreds.h -- User-Level Threads Library (uthreads)
+usthreds.cpp -- the implementaion of the header file used in the library
+				to scheduler the threads and maintain them.
+Thread.h --  a class which represents a user-level thread.
+Thread.cpp -- the implementation of the header file.
+
+
+
+REMARKS:
+note: whenever we mention a thread we mean a user-level thread.
+
+1. We implemented a Thread class which contains all the relevant data of the a
+thread. Including the thread's ID, state, environemnt, stack and some more
+details concerning the thread status.
+
+2. We used the following control structures in our program:
+- allThreads: hash map of all the existing threads at the moment, we used a hash 
+			  map since we access many times to a specific thread (by ID) which 
+			  resides in a dinamicly structure of threads.
+- readyThreads: list of all the threads in ready state, we used a list since
+			    it has the capability of a queue which allows FIFO 
+			    implementation to the ready threads.
+- sleepThreads: min-heap of all the threads in sleap state, we used a min-heap
+				since each quantum we have to check which threads should wake 
+				up, and in order to do it efficiently we can check the threads
+				with respect to their awaking time.
+- idsMinHeap: min-heap of the theards IDs, the top of the heap holds the 
+			  next available ID at the moment.
+					   
+3. At each we switch the running thread (in threadsHandler) we do the following 
+actions:
+- we delete all the threads that terminate themselves during running state.
+- we insert to the ready list all the threads that woke up and the current 
+  running thread.
+- if the running thread didn't terminate himself we saved it's curernt 
+  environment (sigsetjmp) moved it to the ready threads list.
+- we moved the first thread among the ready threads to be the running thread,
+  and load it's environment to make it run (siglongjmp).
+
+4. In the transition state's function we masked the SIGVTALRM signal in order to
+prevent interrupts during their execution. The reason we did it is because if a 
+SIGVTALRM signal would interrupt a transition function it would triggered the 
+threadsHanler function and the program wouldn't behave as expected.
+
+5. There is a specific issue when terminating the running thread which isn't the
+main thread (terminating the main thread finish the program). We don't want to 
+delete the thread's environment including the thread's stack while it's running 
+because the stack variables of the current running function is saved in the 
+threads stack and deleting them may cause errors. We fixed it by replacing the
+running thread which terminate himself and only in the next quantum delete it.
+
+
+Part 2 - QUESTIONS:
+
+1. Creating new process:
+   Advantage:
+   - Protect from each other, require operationg system to communicate.
+   - Each task has its own data and files (global variable and the heap).
+   Disadvantage:
+   - High context switch overhead: all context switch require a kernel trap,
+     significant work compared to kernel threads traps.
+   - High communication overhead:  all communication between processes
+      require a kernel trap, significant work compared to kernel threads traps.
+     
+   About google tabs:
+   - Google have decided to use new processes for each tab beacuse of the
+     following reasons:
+     a. To protect data: if someone is able to hack to one of the processes
+        google doesn't wan't him to access the other tab's data, and they
+        achieve that by putting the tabs in other processes.
+     b. To prevent the collapse of all the tabs together:
+        in case that one of the tab collapse we don't other tabs to collapse
+        too and the browser will continue to run.
+
+
+2. After typing 'kill pid' (where pid is the process ID) the following actions 
+occured:
+- The keyboard causes the CPU to send an interrupt to the OS when we pressed
+the key 'Enter'.
+- The OS sends a signal to the shell telling it that a key was pressed.
+- The shell handles this signal by calling the OS (usnig trap) and ask the OS 
+to send SIGTERM signal to the process which ID is pid.
+- The process receives the SIGTERM signal and handles it as the process 
+wishes (using it's defalut hanlder or the one this process implemented).
+- At the end of the handler, the process is terminated and the procedure of the
+ kill command is done.
+
+
+3. Real time is the time in the real physical world while virtual time is the 
+time which elapses only when a specific process is running.
+examples:
+Real time: If we want to tell the user that he has 10 seconds to determine 
+whether the computer turns of or not we have to use real time to measure time.
+The reason is that we don't want the timer to stop counting if a context switch
+occurs and another process will run.
+Virtual time: If we want to measure a computaion of a certain operation, we 
+have to use virtual time because we interested in the computation time only, and 
+not in the time that may have elapsed during other proccess which don't relate
+to the computation.
+
+
+4.
+a. None of the following: stack, heap and global variables are common among
+   the parent and child (created usign fork) processes.
+   Using fork creates an exact copy of the parent process, all of the above 
+   memory structures are the same in the parent and the child processes, 
+   however, the child memory structures are creates using deep copy of the 
+   parent memory structures.
+b. a pipe is a function which creates an interprocess communication channel.
+   The pipe is used to communicate between two processes. For example, as 
+   explained in a, the parent and child processes don't share their memory 
+   structures and therefore pipe is a way to communicate between them.
+   A pipe is used to transfer data between two processes, it's may be done by 
+   creating a pipe. In order to keep the cummunication safe, only one of the 
+   process shuld able to write (and not to read) to the pipe while the other 
+   process should only be able reading from the pipe (and not writing).
+
+
+
+   
