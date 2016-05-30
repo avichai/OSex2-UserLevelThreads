@@ -1,3 +1,0 @@
-1. how to check if the use_ino flag is given in mount?
-2. check if errno works.
-3. use stat or lstat in getattr?
